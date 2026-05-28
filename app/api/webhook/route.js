@@ -2,6 +2,26 @@ import { verifySignature } from '@/lib/verify'
 import { getRules, hasBeenDMed, logDM } from '@/lib/driveDB'
 import { sendDM } from '@/lib/instagram'
 import { getAccountByIgId, getAccounts } from '@/lib/accounts'
+import axios from 'axios'
+
+const BASE = 'https://graph.facebook.com/v18.0'
+const WEBHOOK_FIELDS = 'comments,live_comments,messages,message_reactions,messaging_handover,message_edit'
+
+async function subscribeAllPages() {
+  const accounts = getAccounts()
+  for (const account of accounts) {
+    try {
+      await axios.post(
+        `${BASE}/${account.pageId}/subscribed_apps`,
+        { subscribed_fields: WEBHOOK_FIELDS },
+        { params: { access_token: account.token } }
+      )
+      console.log('[webhook] subscribed page for:', account.name)
+    } catch (err) {
+      console.error('[webhook] failed to subscribe page for:', account.name, err.response?.data ?? err.message)
+    }
+  }
+}
 
 // Meta webhook verification handshake
 export async function GET(req) {
@@ -11,6 +31,7 @@ export async function GET(req) {
   const challenge = searchParams.get('hub.challenge')
 
   if (mode === 'subscribe' && token === process.env.VERIFY_TOKEN) {
+    subscribeAllPages().catch(console.error)
     return new Response(challenge, { status: 200 })
   }
 
