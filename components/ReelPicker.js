@@ -1,16 +1,18 @@
 'use client'
 import { useEffect, useState } from 'react'
 
-export default function ReelPicker({ selected, applyToAll, onChange }) {
+export default function ReelPicker({ igId, selected, applyToAll, onChange }) {
   const [reels, setReels] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    fetch('/api/reels')
+    if (!igId) { setReels([]); return }
+    setLoading(true)
+    fetch(`/api/reels?igId=${igId}`)
       .then(r => r.json())
       .then(data => { setReels(data); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [])
+  }, [igId])
 
   function toggle(reelId) {
     const next = selected.includes(reelId)
@@ -32,9 +34,10 @@ export default function ReelPicker({ selected, applyToAll, onChange }) {
 
       {!applyToAll && (
         <>
-          {loading && <p className="loading">Loading reels…</p>}
-          {!loading && reels.length === 0 && (
-            <p className="empty">No reels found. Make sure your PAGE_ACCESS_TOKEN is set.</p>
+          {!igId && <p className="hint">Select an account above to see its reels.</p>}
+          {igId && loading && <p className="loading">Loading reels…</p>}
+          {igId && !loading && reels.length === 0 && (
+            <p className="empty">No reels found for this account.</p>
           )}
           <div className="reel-grid">
             {reels.map(reel => (

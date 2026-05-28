@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import MessageBuilder from './MessageBuilder'
 import ReelPicker from './ReelPicker'
@@ -8,9 +8,11 @@ export default function RuleEditor({ initial }) {
   const router = useRouter()
   const isNew = !initial?.id
 
+  const [accounts, setAccounts] = useState([])
   const [rule, setRule] = useState(initial || {
     name: '',
     active: true,
+    igId: null,
     applyToAll: false,
     targetReels: [],
     keywords: [],
@@ -19,6 +21,18 @@ export default function RuleEditor({ initial }) {
   const [keywordInput, setKeywordInput] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    fetch('/api/accounts')
+      .then(r => r.json())
+      .then(data => {
+        setAccounts(data)
+        if (isNew && data.length > 0 && !rule.igId) {
+          setRule(r => ({ ...r, igId: data[0].igId }))
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   function addKeyword() {
     const kw = keywordInput.trim().toLowerCase()
@@ -31,8 +45,13 @@ export default function RuleEditor({ initial }) {
     setRule(r => ({ ...r, keywords: r.keywords.filter(k => k !== kw) }))
   }
 
+  function selectAccount(igId) {
+    setRule(r => ({ ...r, igId, targetReels: [], applyToAll: false }))
+  }
+
   async function save() {
     if (!rule.name) return setError('Give this rule a name.')
+    if (!rule.igId) return setError('Select an account.')
     if (rule.keywords.length === 0) return setError('Add at least one keyword.')
     if (rule.messages.length === 0) return setError('Add at least one message.')
     if (!rule.applyToAll && rule.targetReels.length === 0) return setError('Select at least one reel, or enable Apply to all.')
@@ -63,6 +82,8 @@ export default function RuleEditor({ initial }) {
     router.push('/rules')
   }
 
+  const selectedAccount = accounts.find(a => a.igId === rule.igId)
+
   return (
     <div className="rule-editor">
       <div className="editor-header">
@@ -81,6 +102,22 @@ export default function RuleEditor({ initial }) {
           Active
         </label>
       </div>
+
+      <section>
+        <h3>Account</h3>
+        <p className="hint">Which Instagram account this rule belongs to.</p>
+        <div className="account-tabs">
+          {accounts.map(a => (
+            <button
+              key={a.igId}
+              className={`account-tab ${rule.igId === a.igId ? 'selected' : ''}`}
+              onClick={() => selectAccount(a.igId)}
+            >
+              {a.name}
+            </button>
+          ))}
+        </div>
+      </section>
 
       <section>
         <h3>1. Trigger Keywords</h3>
@@ -115,8 +152,11 @@ export default function RuleEditor({ initial }) {
 
       <section>
         <h3>3. Target Reels</h3>
-        <p className="hint">Choose which reels this rule watches.</p>
+        <p className="hint">
+          {selectedAccount ? `Reels from ${selectedAccount.name}.` : 'Select an account first.'}
+        </p>
         <ReelPicker
+          igId={rule.igId}
           selected={rule.targetReels}
           applyToAll={rule.applyToAll}
           onChange={({ targetReels, applyToAll }) =>

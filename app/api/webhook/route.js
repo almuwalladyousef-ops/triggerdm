@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server'
 import { verifySignature } from '@/lib/verify'
 import { getRules, hasBeenDMed, logDM } from '@/lib/driveDB'
 import { sendDM } from '@/lib/instagram'
+import { getAccountByIgId, getAccounts } from '@/lib/accounts'
 
 // Meta webhook verification handshake
 export async function GET(req) {
@@ -17,19 +17,19 @@ export async function GET(req) {
   return new Response('Forbidden', { status: 403 })
 }
 
-// Incoming comment event from Meta
 export async function POST(req) {
-  // Respond 200 immediately so Meta doesn't retry
   const rawBody = await req.text()
   const signature = req.headers.get('x-hub-signature-256')
 
-  if (!verifySignature(rawBody, signature)) {
+  // Verify signature against any connected account's app secret
+  const accounts = getAccounts()
+  const validSig = accounts.some(a => verifySignature(rawBody, signature, a.appSecret))
+  if (!validSig) {
     return new Response('Forbidden', { status: 403 })
   }
 
-  // Fire and forget — process after returning 200
+  // Respond 200 immediately so Meta doesn't retry
   processWebhook(rawBody).catch(console.error)
-
   return new Response('OK', { status: 200 })
 }
 
@@ -37,6 +37,7 @@ async function processWebhook(rawBody) {
   const body = JSON.parse(rawBody)
 
   const entry = body.entry?.[0]
+  const igAccountId = entry?.id  // Instagram account ID that received the comment
   const change = entry?.changes?.[0]
 
   if (change?.field !== 'comments') return
@@ -47,25 +48,26 @@ async function processWebhook(rawBody) {
 
   if (!commenterId || !commentText) return
 
+  // Find which account this event is for
+  const account = getAccountByIgId(igAccountId)
+  if (!account) return
+
   const rules = await getRules()
+  const lower = commentText.toLowerCase()
 
   for (const rule of rules) {
     if (!rule.active) continue
 
-    // Check if this rule applies to the reel
     const appliesToReel = rule.applyToAll || rule.targetReels?.includes(mediaId)
     if (!appliesToReel) continue
 
-    // Check keyword match (case-insensitive)
-    const lower = commentText.toLowerCase()
     const matched = rule.keywords.some(kw => lower.includes(kw.toLowerCase()))
     if (!matched) continue
 
-    // Deduplication — skip if already DMed for this rule
     const alreadyDMed = await hasBeenDMed(rule.id, commenterId)
     if (alreadyDMed) continue
 
-    await sendDM(commenterId, rule.messages)
+    await sendDM(commenterId, rule.messages, account.token)
     await logDM(rule.id, commenterId)
   }
 }

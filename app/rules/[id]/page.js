@@ -5,7 +5,8 @@ import { notFound } from 'next/navigation'
 export const dynamic = 'force-dynamic'
 
 export default async function EditRulePage({ params }) {
-  const rules = await getRules()
+  let rules = []
+  try { rules = await getRules() } catch { /* DB not configured yet */ }
   const rule = rules.find(r => r.id === params.id)
 
   if (!rule) notFound()

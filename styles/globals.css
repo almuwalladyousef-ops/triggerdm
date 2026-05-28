@@ -240,3 +240,31 @@ section { background: var(--card-bg); border: 1px solid var(--border); border-ra
 .error { color: var(--danger); font-size: 14px; }
 
 input, textarea { font-family: inherit; }
+
+/* Account tabs */
+.account-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.account-tab {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text-muted);
+  padding: 7px 16px;
+  border-radius: 99px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.account-tab:hover { border-color: var(--accent); color: var(--accent); }
+.account-tab.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* Rule account badge */
+.rule-account {
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 500;
+  background: #ede9fe;
+  padding: 2px 8px;
+  border-radius: 99px;
+  width: fit-content;
+}
