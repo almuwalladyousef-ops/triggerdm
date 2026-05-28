@@ -35,10 +35,13 @@ export async function POST(req) {
 
 async function processWebhook(rawBody) {
   const body = JSON.parse(rawBody)
+  console.log('[webhook] received:', JSON.stringify(body).slice(0, 500))
 
   const entry = body.entry?.[0]
-  const igAccountId = entry?.id  // Instagram account ID that received the comment
+  const igAccountId = entry?.id
   const change = entry?.changes?.[0]
+
+  console.log('[webhook] field:', change?.field, '| igAccountId:', igAccountId)
 
   if (change?.field !== 'comments') return
 
@@ -46,10 +49,12 @@ async function processWebhook(rawBody) {
   const commenterId = change.value?.from?.id
   const mediaId = change.value?.media?.id
 
+  console.log('[webhook] comment:', commentText, '| commenter:', commenterId, '| media:', mediaId)
+
   if (!commenterId || !commentText) return
 
-  // Find which account this event is for
   const account = getAccountByIgId(igAccountId)
+  console.log('[webhook] account found:', account?.name ?? 'NONE')
   if (!account) return
 
   const rules = await getRules()
@@ -59,15 +64,17 @@ async function processWebhook(rawBody) {
     if (!rule.active) continue
 
     const appliesToReel = rule.applyToAll || rule.targetReels?.includes(mediaId)
-    if (!appliesToReel) continue
+    if (!appliesToReel) { console.log('[webhook] rule', rule.name, 'skipped: reel mismatch'); continue }
 
     const matched = rule.keywords.some(kw => lower.includes(kw.toLowerCase()))
-    if (!matched) continue
+    if (!matched) { console.log('[webhook] rule', rule.name, 'skipped: no keyword match'); continue }
 
     const alreadyDMed = await hasBeenDMed(rule.id, commenterId)
-    if (alreadyDMed) continue
+    if (alreadyDMed) { console.log('[webhook] rule', rule.name, 'skipped: already DMed'); continue }
 
-    await sendDM(commenterId, rule.messages, account.token)
+    console.log('[webhook] sending DM for rule:', rule.name)
+    await sendDM(commenterId, rule.messages, account.token, account.igId)
     await logDM(rule.id, commenterId)
+    console.log('[webhook] DM sent!')
   }
 }
