@@ -322,19 +322,9 @@ export default function RuleEditor({ initial }) {
         </div>
       </section>
 
-      {/* DM message */}
-      <section>
-        <h3>3. DM Message</h3>
-        <p className="hint">The message sent to the commenter. Use {`{{first_name}}`} to personalize.</p>
-        <MessageBuilder
-          messages={rule.messages}
-          onChange={messages => set('messages', messages)}
-        />
-      </section>
-
       {/* Two-step opt-in */}
       <section>
-        <h3>4. Two-Step Opt-In</h3>
+        <h3>3. Two-Step Opt-In</h3>
         <p className="hint">Send a teaser first. They tap a button to get the actual message.</p>
         <label className="toggle" style={{ marginBottom: '16px' }}>
           <input type="checkbox" checked={rule.twoStep} onChange={e => set('twoStep', e.target.checked)} />
@@ -356,9 +346,19 @@ export default function RuleEditor({ initial }) {
               value={rule.twoStepButtonText}
               onChange={e => set('twoStepButtonText', e.target.value)}
             />
-            <p className="hint" style={{ marginTop: '8px' }}>The DM Message above (step 3) is sent after they tap the button.</p>
+            <p className="hint" style={{ marginTop: '8px' }}>The DM Message below (step 4) is sent after they tap the button.</p>
           </div>
         )}
+      </section>
+
+      {/* DM message */}
+      <section>
+        <h3>4. DM Message</h3>
+        <p className="hint">The message sent to the commenter. Use {`{{first_name}}`} to personalize.</p>
+        <MessageBuilder
+          messages={rule.messages}
+          onChange={messages => set('messages', messages)}
+        />
       </section>
 
       {/* Comment reply */}

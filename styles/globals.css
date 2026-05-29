@@ -407,13 +407,21 @@ section { background: var(--card-bg); border: 1px solid var(--border); border-ra
 .message-builder { display: flex; flex-direction: column; gap: 12px; }
 .blocks { display: flex; flex-direction: column; gap: 10px; }
 
-.block { border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; position: relative; }
+.block { border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; position: relative; transition: background 0.15s; }
+.block--collapsed { padding: 8px 12px; gap: 0; }
 .block--button { border-color: #c7d2fe; background: #f5f3ff; }
 .block-controls { display: flex; gap: 6px; align-items: center; }
 .block-controls button { padding: 4px 8px; font-size: 12px; }
+.block-controls-right { display: flex; gap: 4px; align-items: center; margin-left: auto; }
+.block-controls-right button { padding: 4px 8px; font-size: 12px; }
+.block-controls-right .remove { border-color: var(--danger); color: var(--danger); }
+.block-controls-right .remove:hover { background: var(--danger); color: #fff; }
 .block-controls .remove { margin-left: auto; border-color: var(--danger); color: var(--danger); }
 .block-controls .remove:hover { background: var(--danger); color: #fff; }
+.block-toggle { background: none; border: none; cursor: pointer; font-size: 14px; color: var(--text-muted); padding: 2px 4px !important; line-height: 1; }
+.block-toggle:hover { color: var(--accent); }
 .block-type-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.block-summary { font-size: 13px; color: var(--text); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-left: 4px; }
 
 .block textarea, .block input[type="url"], .block input[type="text"] {
   width: 100%;
