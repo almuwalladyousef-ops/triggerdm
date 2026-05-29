@@ -89,7 +89,7 @@ const appSecret = arg('app-secret', env.META_APP_SECRET || env.APP_SECRET || env
 const targetIgId = arg('ig-id', env.BUSINESS_IG_ID)
 const targetEnv = arg('env-key', 'BUSINESS_PAGE_TOKEN')
 const port = Number(arg('port', DEFAULT_PORT))
-const redirectUri = `http://localhost:${port}/callback`
+const redirectUri = arg('redirect-uri', `http://localhost:${port}/callback`)
 const state = crypto.randomUUID()
 const scopes = arg('scopes', DEFAULT_SCOPES.join(',')).split(',').map(s => s.trim()).filter(Boolean)
 
