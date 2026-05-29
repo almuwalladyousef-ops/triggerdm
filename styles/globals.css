@@ -349,6 +349,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 section { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column; }
 
+.section--mandatory { border-left: 3px solid var(--success); }
 .section-header {
   display: flex;
   align-items: center;
@@ -362,9 +363,23 @@ section { background: var(--card-bg); border: 1px solid var(--border); border-ra
   transition: background 0.12s;
 }
 .section-header:hover { background: var(--bg); }
+.section-header--static { cursor: default; }
+.section-header--static:hover { background: none; }
 .section-title { font-size: 15px; font-weight: 600; color: var(--text); }
-.section-chevron { font-size: 16px; color: var(--text-muted); transition: transform 0.15s; }
-.section-body { padding: 0 20px 20px; display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--border); padding-top: 16px; }
+.section-chevron { font-size: 16px; color: var(--text-muted); }
+.section-header-right { display: flex; align-items: center; gap: 8px; }
+.section-required {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--success);
+  background: var(--success-bg);
+  border: 1px solid var(--success);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+.section-body { padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--border); }
 
 /* Multiple comment replies */
 .comment-replies-list { display: flex; flex-direction: column; gap: 10px; }
