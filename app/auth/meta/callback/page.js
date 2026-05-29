@@ -27,7 +27,7 @@ export default async function MetaCallback({ searchParams }) {
     if (searchParams?.error) {
       throw new Error(`${searchParams.error}: ${searchParams.error_description || ''}`)
     }
-    if (!searchParams?.code) throw new Error('Missing OAuth code')
+    if (!searchParams?.code) throw new Error('Missing OAuth code. Start from /auth/meta/start, not this callback URL directly.')
     if (!appSecret) throw new Error('Missing META_APP_SECRET/BUSINESS_APP_SECRET in Vercel')
     if (!TARGET_IG_ID) throw new Error('Missing BUSINESS_IG_ID in Vercel')
 
@@ -90,6 +90,7 @@ export default async function MetaCallback({ searchParams }) {
       <main style={{ fontFamily: 'sans-serif', padding: 32, lineHeight: 1.5 }}>
         <h1>Token setup failed</h1>
         <p>{err.message}</p>
+        <p><a href="/auth/meta/start">Restart Meta sign-in</a></p>
       </main>
     )
   }
