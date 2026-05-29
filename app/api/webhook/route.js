@@ -8,7 +8,7 @@ import {
   replyToComment, sendPrivateReply, sendPrivateReplyWithButton,
   sendDMToUser, fetchUserName,
 } from '@/lib/instagram'
-import { getAccountByIgId, getAccounts } from '@/lib/accounts'
+import { getAccountByIgIdWithStoredToken, getAccountsWithStoredTokens } from '@/lib/accounts'
 import axios from 'axios'
 
 const BASE = 'https://graph.facebook.com/v18.0'
@@ -20,7 +20,7 @@ function isInstagramLoginToken(token) {
 }
 
 async function subscribeAllPages() {
-  const accounts = getAccounts()
+  const accounts = await getAccountsWithStoredTokens()
   for (const account of accounts) {
     if (isInstagramLoginToken(account.token)) {
       console.log('[webhook] skipping page subscription for Instagram Login token:', account.name)
@@ -56,7 +56,7 @@ export async function POST(req) {
   const rawBody = await req.text()
   const signature = req.headers.get('x-hub-signature-256')
 
-  const accounts = getAccounts()
+  const accounts = await getAccountsWithStoredTokens()
   const validSig = accounts.some(a => verifySignature(rawBody, signature, a.appSecret))
   if (!validSig && process.env.ALLOW_UNVERIFIED_WEBHOOKS !== 'true') {
     console.error('[webhook] rejected: invalid signature')
@@ -117,9 +117,9 @@ async function processInboundMessage(igAccountId, msg) {
     const rule = rules.find(r => r.id === pending.ruleId)
     if (rule) {
       // Resolve account: try by igAccountId first, then by rule.igId, then first account
-      const account = getAccountByIgId(igAccountId)
-        || getAccountByIgId(rule.igId)
-        || getAccounts()[0]
+      const account = await getAccountByIgIdWithStoredToken(igAccountId)
+        || await getAccountByIgIdWithStoredToken(rule.igId)
+        || (await getAccountsWithStoredTokens())[0]
       if (account) {
         try {
           const userInfo = await fetchUserName(senderId, account.token)
@@ -141,7 +141,7 @@ async function processInboundMessage(igAccountId, msg) {
     return
   }
 
-  const account = getAccountByIgId(igAccountId)
+  const account = await getAccountByIgIdWithStoredToken(igAccountId)
   if (!account) return
 
   // DM keyword triggers
@@ -236,7 +236,7 @@ async function processChange(igAccountId, change) {
     return
   }
 
-  const account = getAccountByIgId(igAccountId)
+  const account = await getAccountByIgIdWithStoredToken(igAccountId)
   if (!account) {
     await logWebhookEvent({ type: 'skipped_no_account', igAccountId, commentId, commenterId, commentText, mediaId })
     return

@@ -1,4 +1,4 @@
-import { getAccounts } from '@/lib/accounts'
+import { getAccountsWithStoredTokens } from '@/lib/accounts'
 import axios from 'axios'
 
 const BASE = 'https://graph.facebook.com/v18.0'
@@ -14,7 +14,7 @@ export async function POST(req) {
     return Response.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const accounts = getAccounts()
+  const accounts = await getAccountsWithStoredTokens()
   const results = []
 
   for (const account of accounts) {

@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { getAccounts } from '@/lib/accounts'
+import { getAccountsWithStoredTokens } from '@/lib/accounts'
 import { getRules, hasBeenDMed, logDM, logWebhookEvent, checkAndIncrementSendCap } from '@/lib/driveDB'
 import { fetchUserName, replyToComment, sendPrivateReply } from '@/lib/instagram'
 
@@ -150,7 +150,7 @@ export async function GET(req) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const accounts = getAccounts()
+  const accounts = await getAccountsWithStoredTokens()
   const rules = await getRules()
   const results = []
 

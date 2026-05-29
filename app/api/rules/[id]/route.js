@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getRules, saveRule, deleteRule, resetRuleDmedLog } from '@/lib/driveDB'
 import { sendDMToUser } from '@/lib/instagram'
-import { getAccountByIgId } from '@/lib/accounts'
+import { getAccountByIgIdWithStoredToken } from '@/lib/accounts'
 
 export async function GET(req, { params }) {
   const rules = await getRules()
@@ -46,7 +46,7 @@ export async function POST(req, { params }) {
     const rule = rules.find(r => r.id === params.id)
     if (!rule) return NextResponse.json({ error: 'Rule not found' }, { status: 404 })
 
-    const account = getAccountByIgId(rule.igId)
+    const account = await getAccountByIgIdWithStoredToken(rule.igId)
     if (!account) return NextResponse.json({ error: 'Account not found' }, { status: 404 })
 
     try {
