@@ -50,8 +50,9 @@ export async function POST(req) {
     return new Response('Forbidden', { status: 403 })
   }
 
-  // Respond 200 immediately so Meta doesn't retry
-  processWebhook(rawBody).catch(console.error)
+  // Vercel serverless functions are not reliable for background work after
+  // returning the response, so finish the webhook side effects before 200 OK.
+  await processWebhook(rawBody)
   return new Response('OK', { status: 200 })
 }
 
