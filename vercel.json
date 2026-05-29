@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/poll-comments?sinceMinutes=10",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/refresh-token",
       "schedule": "0 0 1 * *"
     }
