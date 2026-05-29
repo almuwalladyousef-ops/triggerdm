@@ -1,32 +1,63 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
+import RuleCard, { RuleCardSkeleton } from '@/components/RuleCard'
+
+const SORT_OPTIONS = [
+  { value: 'updated', label: 'Last updated' },
+  { value: 'created', label: 'Date created' },
+  { value: 'name', label: 'Name' },
+  { value: 'dms', label: 'Most DMs sent' },
+]
 
 export default function RulesPage() {
   const [accounts, setAccounts] = useState([])
   const [rules, setRules] = useState([])
+  const [perRuleStats, setPerRuleStats] = useState({})
   const [activeTab, setActiveTab] = useState('all')
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(new Set())
-  const [deleting, setDeleting] = useState(false)
+  const [bulkAction, setBulkAction] = useState(null) // 'delete' | 'activate' | 'pause'
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all') // 'all' | 'active' | 'paused'
+  const [sort, setSort] = useState('updated')
 
   useEffect(() => {
     Promise.all([
       fetch('/api/accounts').then(r => r.json()),
       fetch('/api/rules').then(r => r.json()),
-    ]).then(([accs, rls]) => {
+      fetch('/api/stats?perRule=1').then(r => r.json()),
+    ]).then(([accs, rls, stats]) => {
       setAccounts(accs)
       setRules(rls)
+      setPerRuleStats(stats.perRule || {})
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [])
 
-  const filtered = activeTab === 'all'
-    ? rules
-    : rules.filter(r => r.igId === activeTab)
+  const filtered = useMemo(() => {
+    let list = activeTab === 'all' ? rules : rules.filter(r => r.igId === activeTab)
 
-  function toggleSelect(e, id) {
-    e.preventDefault()
+    if (statusFilter === 'active') list = list.filter(r => r.active)
+    if (statusFilter === 'paused') list = list.filter(r => !r.active)
+
+    if (search.trim()) {
+      const q = search.trim().toLowerCase()
+      list = list.filter(r =>
+        r.name.toLowerCase().includes(q) ||
+        r.keywords?.some(kw => kw.includes(q))
+      )
+    }
+
+    return [...list].sort((a, b) => {
+      if (sort === 'name') return a.name.localeCompare(b.name)
+      if (sort === 'dms') return (perRuleStats[b.id]?.count || 0) - (perRuleStats[a.id]?.count || 0)
+      if (sort === 'created') return new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+      return new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0)
+    })
+  }, [rules, activeTab, statusFilter, search, sort, perRuleStats])
+
+  function toggleSelect(id) {
     setSelected(prev => {
       const next = new Set(prev)
       next.has(id) ? next.delete(id) : next.add(id)
@@ -42,9 +73,10 @@ export default function RulesPage() {
     }
   }
 
-  async function handleDeleteSelected() {
-    if (!confirm(`Delete ${selected.size} rule${selected.size !== 1 ? 's' : ''}?`)) return
-    setDeleting(true)
+  async function handleBulkDelete() {
+    const names = [...selected].map(id => rules.find(r => r.id === id)?.name).filter(Boolean)
+    if (!confirm(`Delete ${selected.size} rule${selected.size !== 1 ? 's' : ''}?\n\n${names.join('\n')}`)) return
+    setBulkAction('delete')
     await fetch('/api/rules', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -52,32 +84,39 @@ export default function RulesPage() {
     })
     setRules(prev => prev.filter(r => !selected.has(r.id)))
     setSelected(new Set())
-    setDeleting(false)
+    setBulkAction(null)
+  }
+
+  async function handleBulkActive(active) {
+    setBulkAction(active ? 'activate' : 'pause')
+    await fetch('/api/rules', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [...selected], active }),
+    })
+    setRules(prev => prev.map(r => selected.has(r.id) ? { ...r, active } : r))
+    setSelected(new Set())
+    setBulkAction(null)
+  }
+
+  async function handleInlineToggle(id, active) {
+    setRules(prev => prev.map(r => r.id === id ? { ...r, active } : r))
+    await fetch('/api/rules', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [id], active }),
+    })
   }
 
   const allSelected = filtered.length > 0 && selected.size === filtered.length
   const someSelected = selected.size > 0
+  const isBusy = bulkAction !== null
 
   return (
     <div className="page">
       <div className="page-header">
         <h1>Rules</h1>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          {someSelected && (
-            <button
-              onClick={handleDeleteSelected}
-              disabled={deleting}
-              style={{
-                background: '#ef4444', color: '#fff', border: 'none',
-                borderRadius: '6px', padding: '8px 16px', cursor: 'pointer',
-                fontWeight: 600, opacity: deleting ? 0.6 : 1,
-              }}
-            >
-              {deleting ? 'Deleting…' : `Delete ${selected.size}`}
-            </button>
-          )}
-          <Link href="/rules/new" className="btn-primary">+ New Rule</Link>
-        </div>
+        <Link href="/rules/new" className="btn-primary">+ New Rule</Link>
       </div>
 
       <div className="account-tabs">
@@ -98,67 +137,106 @@ export default function RulesPage() {
         ))}
       </div>
 
+      {/* Search + filter + sort bar */}
+      <div className="rules-toolbar">
+        <input
+          className="rules-search"
+          type="search"
+          placeholder="Search by name or keyword…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <div className="rules-filters">
+          {['all', 'active', 'paused'].map(f => (
+            <button
+              key={f}
+              className={`filter-btn ${statusFilter === f ? 'filter-btn--active' : ''}`}
+              onClick={() => setStatusFilter(f)}
+            >
+              {f.charAt(0).toUpperCase() + f.slice(1)}
+            </button>
+          ))}
+        </div>
+        <select
+          className="sort-select"
+          value={sort}
+          onChange={e => setSort(e.target.value)}
+        >
+          {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </div>
+
       {loading ? (
-        <p className="loading">Loading…</p>
+        <div className="rule-list">
+          {[1, 2, 3].map(i => <RuleCardSkeleton key={i} />)}
+        </div>
       ) : filtered.length === 0 ? (
         <div className="empty-state">
-          <p>No rules yet. <Link href="/rules/new">Create your first rule →</Link></p>
+          <div className="empty-state__icon">📋</div>
+          <p className="empty-state__title">
+            {search || statusFilter !== 'all' ? 'No rules match your filters' : 'No rules yet'}
+          </p>
+          <p className="empty-state__sub">
+            {search || statusFilter !== 'all'
+              ? 'Try changing your search or filter.'
+              : 'Rules let you automatically DM anyone who comments a keyword on your reels.'}
+          </p>
+          {!search && statusFilter === 'all' && (
+            <Link href="/rules/new" className="btn-primary">Create your first rule →</Link>
+          )}
         </div>
       ) : (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
-            <input
-              type="checkbox"
-              checked={allSelected}
-              onChange={toggleSelectAll}
-              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-            />
-            <span style={{ fontSize: '13px', color: '#6b7280' }}>
-              {someSelected ? `${selected.size} selected` : 'Select all'}
-            </span>
-          </div>
-          <div className="rule-list">
-            {filtered.map(rule => {
-              const account = accounts.find(a => a.igId === rule.igId)
-              const isSelected = selected.has(rule.id)
-              return (
-                <div
-                  key={rule.id}
-                  className="rule-card"
-                  style={{
-                    display: 'flex', alignItems: 'center',
-                    outline: isSelected ? '2px solid #6366f1' : 'none',
-                    background: isSelected ? '#f5f3ff' : undefined,
-                  }}
+          {/* Selection toolbar */}
+          <div className="selection-toolbar">
+            <label className="select-all-label">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={toggleSelectAll}
+              />
+              <span>{someSelected ? `${selected.size} of ${filtered.length} selected` : `${filtered.length} rule${filtered.length !== 1 ? 's' : ''}`}</span>
+            </label>
+
+            {someSelected && (
+              <div className="bulk-actions">
+                <button
+                  className="bulk-btn bulk-btn--activate"
+                  onClick={() => handleBulkActive(true)}
+                  disabled={isBusy}
                 >
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={e => toggleSelect(e, rule.id)}
-                    onClick={e => e.stopPropagation()}
-                    style={{ width: '16px', height: '16px', cursor: 'pointer', flexShrink: 0, marginRight: '12px' }}
-                  />
-                  <Link
-                    href={`/rules/${rule.id}`}
-                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit' }}
-                  >
-                    <div className="rule-card-left">
-                      <span className="rule-name">{rule.name}</span>
-                      <span className="rule-keywords">{rule.keywords.join(', ')}</span>
-                      {account && <span className="rule-account">{account.name}</span>}
-                    </div>
-                    <div className="rule-card-right">
-                      <span className={`pill ${rule.active ? 'active' : 'inactive'}`}>
-                        {rule.active ? 'Active' : 'Paused'}
-                      </span>
-                      <span className="rule-meta">
-                        {rule.applyToAll ? 'All reels' : `${rule.targetReels.length} reel${rule.targetReels.length !== 1 ? 's' : ''}`}
-                      </span>
-                    </div>
-                  </Link>
-                </div>
-              )
-            })}
+                  {bulkAction === 'activate' ? 'Activating…' : 'Activate'}
+                </button>
+                <button
+                  className="bulk-btn bulk-btn--pause"
+                  onClick={() => handleBulkActive(false)}
+                  disabled={isBusy}
+                >
+                  {bulkAction === 'pause' ? 'Pausing…' : 'Pause'}
+                </button>
+                <button
+                  className="bulk-btn bulk-btn--delete"
+                  onClick={handleBulkDelete}
+                  disabled={isBusy}
+                >
+                  {bulkAction === 'delete' ? 'Deleting…' : `Delete ${selected.size}`}
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="rule-list">
+            {filtered.map(rule => (
+              <RuleCard
+                key={rule.id}
+                rule={rule}
+                account={accounts.find(a => a.igId === rule.igId)}
+                ruleStats={perRuleStats[rule.id]}
+                isSelected={selected.has(rule.id)}
+                onToggleSelect={toggleSelect}
+                onToggleActive={handleInlineToggle}
+              />
+            ))}
           </div>
         </>
       )}
