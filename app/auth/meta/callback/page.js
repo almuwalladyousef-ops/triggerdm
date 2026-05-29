@@ -1,4 +1,4 @@
-import { saveStoredToken } from '@/lib/driveDB'
+import { logWebhookEvent, saveStoredToken } from '@/lib/driveDB'
 
 const GRAPH_VERSION = 'v18.0'
 const DEFAULT_APP_ID = '1564935734963627'
@@ -62,6 +62,14 @@ export default async function MetaCallback({ searchParams }) {
       igUsername: page.instagram_business_account?.username,
       source: 'meta_oauth_callback',
     })
+    await logWebhookEvent({
+      type: 'meta_oauth_success',
+      tokenKey: TARGET_TOKEN_KEY,
+      pageId: page.id,
+      pageName: page.name,
+      igId: page.instagram_business_account?.id,
+      igUsername: page.instagram_business_account?.username,
+    })
 
     return (
       <main style={{ fontFamily: 'sans-serif', padding: 32, lineHeight: 1.5 }}>
@@ -71,6 +79,13 @@ export default async function MetaCallback({ searchParams }) {
       </main>
     )
   } catch (err) {
+    await logWebhookEvent({
+      type: 'meta_oauth_failed',
+      error: err.message,
+      hasCode: Boolean(searchParams?.code),
+      appId,
+      targetIgId: TARGET_IG_ID,
+    }).catch(() => {})
     return (
       <main style={{ fontFamily: 'sans-serif', padding: 32, lineHeight: 1.5 }}>
         <h1>Token setup failed</h1>
