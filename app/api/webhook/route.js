@@ -118,11 +118,16 @@ async function processChange(igAccountId, change) {
       await sendPrivateReply(commentId, rule.messages, account.token, account.igId)
       await logDM(rule.id, commenterId)
       console.log('[webhook] private reply sent!')
+    } catch (err) {
+      console.error('[webhook] failed to send private reply for rule:', rule.name, err.response?.data ?? err.message)
+      continue
+    }
 
+    try {
       await replyToComment(commentId, rule.commentReply || DEFAULT_COMMENT_REPLY, account.token)
       console.log('[webhook] comment reply sent!')
     } catch (err) {
-      console.error('[webhook] failed to process rule:', rule.name, err.response?.data ?? err.message)
+      console.error('[webhook] failed to reply to comment for rule:', rule.name, err.response?.data ?? err.message)
     }
   }
 }
