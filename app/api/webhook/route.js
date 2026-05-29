@@ -8,9 +8,18 @@ const BASE = 'https://graph.facebook.com/v18.0'
 const PAGE_WEBHOOK_FIELDS = 'feed,messages,message_reactions,messaging_handovers,message_edits'
 const DEFAULT_COMMENT_REPLY = 'Sent you a DM.'
 
+function isInstagramLoginToken(token) {
+  return token?.startsWith('IGA')
+}
+
 async function subscribeAllPages() {
   const accounts = getAccounts()
   for (const account of accounts) {
+    if (isInstagramLoginToken(account.token)) {
+      console.log('[webhook] skipping page subscription for Instagram Login token:', account.name)
+      continue
+    }
+
     try {
       await axios.post(
         `${BASE}/${account.pageId}/subscribed_apps`,

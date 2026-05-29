@@ -4,6 +4,10 @@ import axios from 'axios'
 const BASE = 'https://graph.facebook.com/v18.0'
 const PAGE_FIELDS = 'feed,messages,message_reactions,messaging_handovers,message_edits'
 
+function isInstagramLoginToken(token) {
+  return token?.startsWith('IGA')
+}
+
 export async function POST(req) {
   const secret = req.headers.get('x-admin-secret')
   if (process.env.ADMIN_SECRET && secret !== process.env.ADMIN_SECRET) {
@@ -14,6 +18,16 @@ export async function POST(req) {
   const results = []
 
   for (const account of accounts) {
+    if (isInstagramLoginToken(account.token)) {
+      results.push({
+        account: account.name,
+        success: true,
+        skipped: true,
+        message: 'Instagram Login tokens are configured in the Meta App Dashboard Instagram webhook subscription, not via Page subscribed_apps.',
+      })
+      continue
+    }
+
     try {
       const res = await axios.post(
         `${BASE}/${account.pageId}/subscribed_apps`,
