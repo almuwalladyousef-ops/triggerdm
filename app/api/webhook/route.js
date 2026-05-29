@@ -1,5 +1,5 @@
 import { verifySignature } from '@/lib/verify'
-import { getRules, hasBeenDMed, logDM } from '@/lib/driveDB'
+import { getRules, hasBeenDMed, logDM, logWebhookEvent } from '@/lib/driveDB'
 import { replyToComment, sendPrivateReply } from '@/lib/instagram'
 import { getAccountByIgId, getAccounts } from '@/lib/accounts'
 import axios from 'axios'
@@ -70,6 +70,20 @@ export async function POST(req) {
 async function processWebhook(rawBody) {
   const body = JSON.parse(rawBody)
   console.log('[webhook] received:', JSON.stringify(body).slice(0, 500))
+  await logWebhookEvent({
+    type: 'received',
+    object: body.object,
+    entries: (body.entry || []).map(entry => ({
+      id: entry?.id,
+      changes: (entry?.changes || []).map(change => ({
+        field: change?.field,
+        valueId: change?.value?.id,
+        text: change?.value?.text,
+        mediaId: change?.value?.media?.id,
+        fromId: change?.value?.from?.id,
+      })),
+    })),
+  })
 
   for (const entry of body.entry || []) {
     const igAccountId = entry?.id
@@ -82,7 +96,10 @@ async function processWebhook(rawBody) {
 
 async function processChange(igAccountId, change) {
   console.log('[webhook] field:', change?.field, '| igAccountId:', igAccountId)
-  if (change?.field !== 'comments') return
+  if (change?.field !== 'comments') {
+    await logWebhookEvent({ type: 'skipped_field', igAccountId, field: change?.field })
+    return
+  }
 
   const commentText = change.value?.text || ''
   const commentId = change.value?.id
@@ -91,11 +108,17 @@ async function processChange(igAccountId, change) {
 
   console.log('[webhook] comment:', commentText, '| commentId:', commentId, '| commenter:', commenterId, '| media:', mediaId)
 
-  if (!commenterId || !commentId || !commentText) return
+  if (!commenterId || !commentId || !commentText) {
+    await logWebhookEvent({ type: 'skipped_missing_comment_data', igAccountId, commentId, commenterId, commentText, mediaId })
+    return
+  }
 
   const account = getAccountByIgId(igAccountId)
   console.log('[webhook] account found:', account?.name ?? 'NONE')
-  if (!account) return
+  if (!account) {
+    await logWebhookEvent({ type: 'skipped_no_account', igAccountId, commentId, commenterId, commentText, mediaId })
+    return
+  }
 
   const rules = await getRules()
   const lower = commentText.toLowerCase()
@@ -108,25 +131,85 @@ async function processChange(igAccountId, change) {
     if (!appliesToReel) { console.log('[webhook] rule', rule.name, 'skipped: reel mismatch'); continue }
 
     const matched = rule.keywords.some(kw => lower.includes(kw.toLowerCase()))
-    if (!matched) { console.log('[webhook] rule', rule.name, 'skipped: no keyword match'); continue }
+    if (!matched) {
+      await logWebhookEvent({
+        type: 'skipped_no_keyword_match',
+        account: account.name,
+        ruleId: rule.id,
+        ruleName: rule.name,
+        keywords: rule.keywords,
+        commentText,
+        mediaId,
+      })
+      console.log('[webhook] rule', rule.name, 'skipped: no keyword match')
+      continue
+    }
 
     const alreadyDMed = await hasBeenDMed(rule.id, commenterId)
-    if (alreadyDMed) { console.log('[webhook] rule', rule.name, 'skipped: already DMed'); continue }
+    if (alreadyDMed) {
+      await logWebhookEvent({
+        type: 'skipped_already_dmed',
+        account: account.name,
+        ruleId: rule.id,
+        ruleName: rule.name,
+        commenterId,
+        commentText,
+        mediaId,
+      })
+      console.log('[webhook] rule', rule.name, 'skipped: already DMed')
+      continue
+    }
 
     try {
       console.log('[webhook] sending private reply for rule:', rule.name)
       await sendPrivateReply(commentId, rule.messages, account.token, account.igId)
       await logDM(rule.id, commenterId)
+      await logWebhookEvent({
+        type: 'private_reply_sent',
+        account: account.name,
+        ruleId: rule.id,
+        ruleName: rule.name,
+        commenterId,
+        commentId,
+        commentText,
+        mediaId,
+      })
       console.log('[webhook] private reply sent!')
     } catch (err) {
+      await logWebhookEvent({
+        type: 'private_reply_failed',
+        account: account.name,
+        ruleId: rule.id,
+        ruleName: rule.name,
+        commentId,
+        commentText,
+        error: err.response?.data ?? err.message,
+      })
       console.error('[webhook] failed to send private reply for rule:', rule.name, err.response?.data ?? err.message)
       continue
     }
 
     try {
       await replyToComment(commentId, rule.commentReply || DEFAULT_COMMENT_REPLY, account.token)
+      await logWebhookEvent({
+        type: 'comment_reply_sent',
+        account: account.name,
+        ruleId: rule.id,
+        ruleName: rule.name,
+        commentId,
+        commentText,
+      })
       console.log('[webhook] comment reply sent!')
     } catch (err) {
+      await logWebhookEvent({
+        type: 'comment_reply_failed',
+        account: account.name,
+        ruleId: rule.id,
+        ruleName: rule.name,
+        commentId,
+        commentText,
+        error: err.response?.data ?? err.message,
+      })
       console.error('[webhook] failed to reply to comment for rule:', rule.name, err.response?.data ?? err.message)
     }
   }
