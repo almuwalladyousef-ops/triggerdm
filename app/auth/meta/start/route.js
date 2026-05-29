@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation'
+import { NextResponse } from 'next/server'
 
 const DEFAULT_APP_ID = '1564935734963627'
 const REDIRECT_URI = 'https://triggerdm.vercel.app/auth/meta/callback'
@@ -12,12 +12,15 @@ const SCOPES = [
   'instagram_manage_messages',
 ]
 
-export default function MetaStart() {
+export const dynamic = 'force-dynamic'
+
+export function GET() {
   const appId = process.env.META_APP_ID || process.env.APP_ID || DEFAULT_APP_ID
   const url = new URL('https://www.facebook.com/dialog/oauth')
   url.searchParams.set('client_id', appId)
   url.searchParams.set('redirect_uri', REDIRECT_URI)
   url.searchParams.set('response_type', 'code')
   url.searchParams.set('scope', SCOPES.join(','))
-  redirect(url.toString())
+
+  return NextResponse.redirect(url)
 }
