@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getRules, saveRule } from '@/lib/driveDB'
+import { getRules, saveRule, deleteRules } from '@/lib/driveDB'
 import { v4 as uuid } from 'uuid'
 
 export async function GET(req) {
@@ -27,4 +27,14 @@ export async function POST(req) {
 
   await saveRule(rule)
   return NextResponse.json(rule, { status: 201 })
+}
+
+export async function DELETE(req) {
+  const body = await req.json()
+  const ids = Array.isArray(body?.ids) ? body.ids : []
+  if (ids.length === 0) {
+    return NextResponse.json({ error: 'No ids provided' }, { status: 400 })
+  }
+  await deleteRules(ids)
+  return NextResponse.json({ success: true, deleted: ids.length })
 }

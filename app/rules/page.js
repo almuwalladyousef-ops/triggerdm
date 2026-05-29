@@ -45,7 +45,11 @@ export default function RulesPage() {
   async function handleDeleteSelected() {
     if (!confirm(`Delete ${selected.size} rule${selected.size !== 1 ? 's' : ''}?`)) return
     setDeleting(true)
-    await Promise.all([...selected].map(id => fetch(`/api/rules/${id}`, { method: 'DELETE' })))
+    await fetch('/api/rules', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [...selected] }),
+    })
     setRules(prev => prev.filter(r => !selected.has(r.id)))
     setSelected(new Set())
     setDeleting(false)
