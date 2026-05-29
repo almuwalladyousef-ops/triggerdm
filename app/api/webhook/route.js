@@ -55,9 +55,11 @@ export async function POST(req) {
   // Verify signature against any connected account's app secret
   const accounts = getAccounts()
   const validSig = accounts.some(a => verifySignature(rawBody, signature, a.appSecret))
-  if (!validSig) {
+  if (!validSig && process.env.ALLOW_UNVERIFIED_WEBHOOKS !== 'true') {
+    console.error('[webhook] rejected: invalid signature')
     return new Response('Forbidden', { status: 403 })
   }
+  if (!validSig) console.warn('[webhook] accepted with invalid signature because ALLOW_UNVERIFIED_WEBHOOKS=true')
 
   // Vercel serverless functions are not reliable for background work after
   // returning the response, so finish the webhook side effects before 200 OK.
