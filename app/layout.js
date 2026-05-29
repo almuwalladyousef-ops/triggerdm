@@ -1,5 +1,6 @@
 import '@/styles/globals.css'
 import Link from 'next/link'
+import BottomNav from '@/components/BottomNav'
 
 export const metadata = {
   title: 'TriggerDM',
@@ -16,9 +17,11 @@ export default function RootLayout({ children }) {
             <nav>
               <Link href="/">Dashboard</Link>
               <Link href="/rules">Rules</Link>
+              <Link href="/settings">Settings</Link>
             </nav>
           </aside>
           <main className="content">{children}</main>
+          <BottomNav />
         </div>
       </body>
     </html>

@@ -593,3 +593,88 @@ input, textarea { font-family: inherit; }
   border-radius: 99px;
   width: fit-content;
 }
+
+/* ─── Bottom nav (hidden on desktop) ─────────────────────────── */
+.bottom-nav { display: none; }
+
+/* ─── Mobile ──────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Hide desktop sidebar */
+  .sidebar { display: none; }
+
+  /* Content fills screen, leaves room for bottom nav */
+  .content {
+    margin-left: 0;
+    padding: 20px 16px;
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    max-width: 100%;
+  }
+
+  /* Bottom nav bar */
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--sidebar-bg);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    z-index: 200;
+  }
+
+  .bottom-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 10px 0;
+    text-decoration: none;
+    color: var(--sidebar-text);
+    font-size: 11px;
+    font-weight: 500;
+    transition: color 0.15s;
+  }
+  .bottom-nav-item--active { color: #ffffff; }
+  .bottom-nav-item svg { opacity: 0.6; }
+  .bottom-nav-item--active svg { opacity: 1; }
+
+  /* Page header */
+  .page-header h1 { font-size: 20px; }
+
+  /* Stat cards — single column */
+  .stat-cards { grid-template-columns: 1fr 1fr; }
+
+  /* Rule cards */
+  .rule-card { padding: 14px; }
+  .rule-card-meta { flex-wrap: wrap; gap: 6px; }
+
+  /* Rules toolbar — stack */
+  .rules-toolbar { flex-direction: column; gap: 10px; }
+  .rules-search { width: 100%; }
+  .rules-filters { justify-content: flex-start; }
+
+  /* Selection toolbar */
+  .selection-toolbar { flex-wrap: wrap; gap: 8px; }
+  .bulk-actions { flex-wrap: wrap; gap: 6px; }
+
+  /* Editor */
+  .rule-editor { gap: 16px; }
+  .rule-name-input { font-size: 18px; }
+  .section-body { padding: 12px 14px 16px; }
+  .section-header { padding: 12px 14px; }
+  .controls-grid { grid-template-columns: 1fr; }
+
+  /* Editor actions — stack */
+  .editor-actions { flex-wrap: wrap; gap: 8px; }
+  .editor-actions button { flex: 1 1 calc(50% - 4px); min-width: 120px; }
+
+  /* Daily chart */
+  .daily-chart-card { padding: 16px; }
+
+  /* Reel picker */
+  .reels-grid { grid-template-columns: repeat(3, 1fr); }
+
+  /* Message builder */
+  .add-buttons { flex-wrap: wrap; }
+}
