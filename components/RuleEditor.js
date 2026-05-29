@@ -4,39 +4,62 @@ import { useRouter } from 'next/navigation'
 import MessageBuilder from './MessageBuilder'
 import ReelPicker from './ReelPicker'
 
+function Section({ title, id, open, onToggle, children }) {
+  return (
+    <section>
+      <button className="section-header" type="button" onClick={onToggle}>
+        <span className="section-title">{title}</span>
+        <span className="section-chevron">{open ? '▾' : '▸'}</span>
+      </button>
+      {open && <div className="section-body">{children}</div>}
+    </section>
+  )
+}
+
 export default function RuleEditor({ initial }) {
   const router = useRouter()
   const isNew = !initial?.id
 
   const [accounts, setAccounts] = useState([])
   const [allRules, setAllRules] = useState([])
-  const [rule, setRule] = useState(initial || {
-    name: '',
-    active: true,
-    igId: null,
-    applyToAll: false,
-    targetReels: [],
-    keywords: [],
-    matchMode: 'any',
-    exactMatch: false,
-    negativeKeywords: [],
-    anyComment: false,
-    dmKeywords: [],
-    perKeywordMessages: {},
-    messages: [],
-    twoStep: false,
-    twoStepPrompt: '',
-    twoStepButtonText: 'Send me!',
-    fallbackMessage: '',
-    commentReply: 'Sent you a DM.',
-    sendCap: '',
-    retriggerDays: '',
-    startDate: '',
-    endDate: '',
+  const [rule, setRule] = useState(() => {
+    if (!initial) return {
+      name: '',
+      active: true,
+      igId: null,
+      applyToAll: false,
+      targetReels: [],
+      keywords: [],
+      matchMode: 'any',
+      exactMatch: false,
+      negativeKeywords: [],
+      anyComment: false,
+      dmKeywords: [],
+      perKeywordMessages: {},
+      messages: [],
+      twoStep: false,
+      twoStepPrompt: '',
+      twoStepButtonText: 'Send me!',
+      fallbackMessage: '',
+      commentReplies: ['Sent you a DM.'],
+      sendCap: '',
+      retriggerDays: '',
+      startDate: '',
+      endDate: '',
+    }
+    // Migrate old commentReply string → commentReplies array
+    const commentReplies = initial.commentReplies?.length
+      ? initial.commentReplies
+      : initial.commentReply
+        ? [initial.commentReply]
+        : ['Sent you a DM.']
+    return { ...initial, commentReplies }
   })
+
   const [keywordInput, setKeywordInput] = useState('')
   const [negKwInput, setNegKwInput] = useState('')
   const [dmKwInput, setDmKwInput] = useState('')
+  const [newReplyInput, setNewReplyInput] = useState('')
   const [saving, setSaving] = useState(false)
   const [cloning, setCloning] = useState(false)
   const [resetting, setResetting] = useState(false)
@@ -44,6 +67,11 @@ export default function RuleEditor({ initial }) {
   const [testUserId, setTestUserId] = useState('')
   const [testResult, setTestResult] = useState(null)
   const [error, setError] = useState('')
+  const [sectionOpen, setSectionOpen] = useState({})
+
+  function toggleSection(key) {
+    setSectionOpen(prev => ({ ...prev, [key]: !prev[key] }))
+  }
 
   useEffect(() => {
     Promise.all([
@@ -58,7 +86,6 @@ export default function RuleEditor({ initial }) {
     }).catch(() => {})
   }, [])
 
-  // Overlap warning: other active rules targeting same reels with overlapping keywords
   const overlaps = allRules.filter(r => {
     if (r.id === rule.id || !r.active) return false
     if (r.igId !== rule.igId) return false
@@ -90,6 +117,23 @@ export default function RuleEditor({ initial }) {
     setDmKwInput('')
   }
 
+  function addReplyVariant() {
+    const text = newReplyInput.trim()
+    if (!text || (rule.commentReplies || []).length >= 5) return
+    set('commentReplies', [...(rule.commentReplies || []), text])
+    setNewReplyInput('')
+  }
+
+  function updateReply(index, value) {
+    const next = [...(rule.commentReplies || [])]
+    next[index] = value
+    set('commentReplies', next)
+  }
+
+  function removeReply(index) {
+    set('commentReplies', (rule.commentReplies || []).filter((_, i) => i !== index))
+  }
+
   function selectAccount(igId) {
     setRule(r => ({ ...r, igId, targetReels: [], applyToAll: false }))
   }
@@ -108,8 +152,11 @@ export default function RuleEditor({ initial }) {
     setSaving(true)
     setError('')
 
+    const commentReplies = (rule.commentReplies || []).filter(r => r.trim())
     const payload = {
       ...rule,
+      commentReply: undefined,
+      commentReplies: commentReplies.length ? commentReplies : ['Sent you a DM.'],
       sendCap: rule.sendCap ? Number(rule.sendCap) : null,
       retriggerDays: rule.retriggerDays ? Number(rule.retriggerDays) : null,
       startDate: rule.startDate || null,
@@ -146,11 +193,8 @@ export default function RuleEditor({ initial }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sourceId: rule.id }),
     })
-    if (res.ok) {
-      router.push('/rules')
-    } else {
-      setCloning(false)
-    }
+    if (res.ok) router.push('/rules')
+    else setCloning(false)
   }
 
   async function resetLog() {
@@ -176,6 +220,7 @@ export default function RuleEditor({ initial }) {
   }
 
   const selectedAccount = accounts.find(a => a.igId === rule.igId)
+  const commentReplies = rule.commentReplies || ['Sent you a DM.']
 
   return (
     <div className="rule-editor">
@@ -196,7 +241,6 @@ export default function RuleEditor({ initial }) {
         </label>
       </div>
 
-      {/* Meta */}
       {!isNew && (
         <div className="editor-meta">
           {rule.createdAt && <span>Created {new Date(rule.createdAt).toLocaleDateString()}</span>}
@@ -204,13 +248,13 @@ export default function RuleEditor({ initial }) {
         </div>
       )}
 
-      <section>
-        <h3>Account</h3>
+      <Section title="Account" id="account" open={!!sectionOpen.account} onToggle={() => toggleSection('account')}>
         <p className="hint">Which Instagram account this rule belongs to.</p>
         <div className="account-tabs">
           {accounts.map(a => (
             <button
               key={a.igId}
+              type="button"
               className={`account-tab ${rule.igId === a.igId ? 'selected' : ''}`}
               onClick={() => selectAccount(a.igId)}
             >
@@ -218,18 +262,14 @@ export default function RuleEditor({ initial }) {
             </button>
           ))}
         </div>
-      </section>
+      </Section>
 
-      {/* Keyword triggers */}
-      <section>
-        <h3>1. Comment Triggers</h3>
+      <Section title="1. Comment Triggers" id="triggers" open={!!sectionOpen.triggers} onToggle={() => toggleSection('triggers')}>
         <p className="hint">When to send the DM based on comment content.</p>
-
         <label className="toggle" style={{ marginBottom: '16px' }}>
           <input type="checkbox" checked={rule.anyComment} onChange={e => set('anyComment', e.target.checked)} />
           Trigger on <strong>any comment</strong> (no keyword needed)
         </label>
-
         {!rule.anyComment && (
           <>
             <div className="keyword-input-row">
@@ -239,17 +279,16 @@ export default function RuleEditor({ initial }) {
                 onChange={e => setKeywordInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && addKeyword()}
               />
-              <button onClick={addKeyword}>Add</button>
+              <button type="button" onClick={addKeyword}>Add</button>
             </div>
             <div className="keyword-tags">
               {rule.keywords.map(kw => (
                 <span key={kw} className="tag">
                   {kw}
-                  <button onClick={() => set('keywords', rule.keywords.filter(k => k !== kw))}>✕</button>
+                  <button type="button" onClick={() => set('keywords', rule.keywords.filter(k => k !== kw))}>✕</button>
                 </span>
               ))}
             </div>
-
             {rule.keywords.length > 1 && (
               <div className="match-mode-row">
                 <span className="hint" style={{ marginBottom: 0 }}>Match mode:</span>
@@ -263,12 +302,10 @@ export default function RuleEditor({ initial }) {
                 </label>
               </div>
             )}
-
             <label className="toggle" style={{ marginTop: '12px' }}>
               <input type="checkbox" checked={rule.exactMatch} onChange={e => set('exactMatch', e.target.checked)} />
               Exact word match (won't trigger on "linking" for keyword "link")
             </label>
-
             <div style={{ marginTop: '16px' }}>
               <p className="hint">Negative keywords — block trigger if comment contains these:</p>
               <div className="keyword-input-row">
@@ -278,30 +315,27 @@ export default function RuleEditor({ initial }) {
                   onChange={e => setNegKwInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && addNegKeyword()}
                 />
-                <button onClick={addNegKeyword}>Add</button>
+                <button type="button" onClick={addNegKeyword}>Add</button>
               </div>
               <div className="keyword-tags">
                 {(rule.negativeKeywords || []).map(kw => (
                   <span key={kw} className="tag tag--negative">
                     {kw}
-                    <button onClick={() => set('negativeKeywords', (rule.negativeKeywords || []).filter(k => k !== kw))}>✕</button>
+                    <button type="button" onClick={() => set('negativeKeywords', (rule.negativeKeywords || []).filter(k => k !== kw))}>✕</button>
                   </span>
                 ))}
               </div>
             </div>
           </>
         )}
-
         {overlaps.length > 0 && (
           <div className="overlap-warning">
             ⚠ Keyword overlap with: {overlaps.map(r => <strong key={r.id}>{r.name}</strong>).reduce((a, b) => [a, ', ', b])}. Both rules may fire on the same comment.
           </div>
         )}
-      </section>
+      </Section>
 
-      {/* DM keyword triggers */}
-      <section>
-        <h3>2. DM Keyword Triggers (optional)</h3>
+      <Section title="2. DM Keyword Triggers (optional)" id="dmkw" open={!!sectionOpen.dmkw} onToggle={() => toggleSection('dmkw')}>
         <p className="hint">Also trigger this rule when someone DMs you one of these words directly.</p>
         <div className="keyword-input-row">
           <input
@@ -310,22 +344,28 @@ export default function RuleEditor({ initial }) {
             onChange={e => setDmKwInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && addDmKeyword()}
           />
-          <button onClick={addDmKeyword}>Add</button>
+          <button type="button" onClick={addDmKeyword}>Add</button>
         </div>
         <div className="keyword-tags">
           {(rule.dmKeywords || []).map(kw => (
             <span key={kw} className="tag tag--dm">
               {kw}
-              <button onClick={() => set('dmKeywords', (rule.dmKeywords || []).filter(k => k !== kw))}>✕</button>
+              <button type="button" onClick={() => set('dmKeywords', (rule.dmKeywords || []).filter(k => k !== kw))}>✕</button>
             </span>
           ))}
         </div>
-      </section>
+      </Section>
 
-      {/* Two-step opt-in */}
-      <section>
-        <h3>3. Two-Step Opt-In</h3>
-        <p className="hint">Send a teaser first. They tap a button to get the actual message.</p>
+      <Section title="3. DM Message" id="message" open={!!sectionOpen.message} onToggle={() => toggleSection('message')}>
+        <p className="hint">The message sent to the commenter. Use {`{{first_name}}`} to personalize.</p>
+        <MessageBuilder
+          messages={rule.messages}
+          onChange={messages => set('messages', messages)}
+        />
+      </Section>
+
+      <Section title="4. Two-Step Opt-In" id="twostep" open={!!sectionOpen.twostep} onToggle={() => toggleSection('twostep')}>
+        <p className="hint">Send a teaser first. They tap a button to get the actual DM message (step 3).</p>
         <label className="toggle" style={{ marginBottom: '16px' }}>
           <input type="checkbox" checked={rule.twoStep} onChange={e => set('twoStep', e.target.checked)} />
           Enable two-step opt-in
@@ -346,36 +386,46 @@ export default function RuleEditor({ initial }) {
               value={rule.twoStepButtonText}
               onChange={e => set('twoStepButtonText', e.target.value)}
             />
-            <p className="hint" style={{ marginTop: '8px' }}>The DM Message below (step 4) is sent after they tap the button.</p>
           </div>
         )}
-      </section>
+      </Section>
 
-      {/* DM message */}
-      <section>
-        <h3>4. DM Message</h3>
-        <p className="hint">The message sent to the commenter. Use {`{{first_name}}`} to personalize.</p>
-        <MessageBuilder
-          messages={rule.messages}
-          onChange={messages => set('messages', messages)}
-        />
-      </section>
+      <Section title="5. Comment Reply" id="reply" open={!!sectionOpen.reply} onToggle={() => toggleSection('reply')}>
+        <p className="hint">
+          Public reply posted under the comment after the DM is sent. Add up to 5 variants — one is picked at random each time.
+        </p>
+        <div className="comment-replies-list">
+          {commentReplies.map((reply, i) => (
+            <div key={i} className="comment-reply-row">
+              <textarea
+                value={reply}
+                onChange={e => updateReply(i, e.target.value)}
+                rows={2}
+                placeholder="e.g. Sent you a DM! 📩"
+              />
+              {commentReplies.length > 1 && (
+                <button type="button" className="remove-reply-btn" onClick={() => removeReply(i)}>✕</button>
+              )}
+            </div>
+          ))}
+        </div>
+        {commentReplies.length < 5 && (
+          <div className="keyword-input-row" style={{ marginTop: '10px' }}>
+            <input
+              placeholder="Add another reply variant…"
+              value={newReplyInput}
+              onChange={e => setNewReplyInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addReplyVariant()}
+            />
+            <button type="button" onClick={addReplyVariant}>Add variant</button>
+          </div>
+        )}
+        <p className="hint" style={{ marginTop: '8px' }}>
+          {commentReplies.length} variant{commentReplies.length !== 1 ? 's' : ''} — each comment gets one picked at random.
+        </p>
+      </Section>
 
-      {/* Comment reply */}
-      <section>
-        <h3>5. Comment Reply</h3>
-        <p className="hint">Public reply posted under the matching comment after the DM is sent.</p>
-        <textarea
-          placeholder="Sent you a DM."
-          value={rule.commentReply || ''}
-          onChange={e => set('commentReply', e.target.value)}
-          rows={2}
-        />
-      </section>
-
-      {/* Target reels */}
-      <section>
-        <h3>6. Target Reels</h3>
+      <Section title="6. Target Reels" id="reels" open={!!sectionOpen.reels} onToggle={() => toggleSection('reels')}>
         <p className="hint">
           {selectedAccount ? `Reels from ${selectedAccount.name}.` : 'Select an account first.'}
         </p>
@@ -385,11 +435,9 @@ export default function RuleEditor({ initial }) {
           applyToAll={rule.applyToAll}
           onChange={({ targetReels, applyToAll }) => setRule(r => ({ ...r, targetReels, applyToAll }))}
         />
-      </section>
+      </Section>
 
-      {/* Controls */}
-      <section>
-        <h3>7. Controls</h3>
+      <Section title="7. Controls" id="controls" open={!!sectionOpen.controls} onToggle={() => toggleSection('controls')}>
         <div className="controls-grid">
           <div className="control-group">
             <label className="field-label">Daily send cap</label>
@@ -432,12 +480,10 @@ export default function RuleEditor({ initial }) {
             />
           </div>
         </div>
-      </section>
+      </Section>
 
-      {/* Test send */}
       {!isNew && (
-        <section>
-          <h3>Test Send</h3>
+        <Section title="Test Send" id="test" open={!!sectionOpen.test} onToggle={() => toggleSection('test')}>
           <p className="hint">Send a test DM to your own Instagram user ID to preview the message.</p>
           <div className="keyword-input-row">
             <input
@@ -445,13 +491,13 @@ export default function RuleEditor({ initial }) {
               value={testUserId}
               onChange={e => setTestUserId(e.target.value)}
             />
-            <button onClick={testSend} disabled={testSending}>
+            <button type="button" onClick={testSend} disabled={testSending}>
               {testSending ? 'Sending…' : 'Send test'}
             </button>
           </div>
           {testResult?.success && <p className="success-msg">DM sent! Check your inbox.</p>}
           {testResult?.error && <p className="error">{testResult.error}</p>}
-        </section>
+        </Section>
       )}
 
       {error && <p className="error">{error}</p>}

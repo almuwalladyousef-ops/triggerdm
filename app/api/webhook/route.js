@@ -103,35 +103,46 @@ async function processWebhook(rawBody) {
 // Inbound DM: handle two-step button taps and DM keyword triggers
 async function processInboundMessage(igAccountId, msg) {
   const senderId = msg?.sender?.id
+  if (!senderId) return
+
   const text = (msg?.message?.text || '').toLowerCase()
   const quickReplyPayload = msg?.message?.quick_reply?.payload
 
-  if (!senderId) return
-
-  const account = getAccountByIgId(igAccountId)
-  if (!account) return
-
-  // Two-step: user tapped the button or replied with trigger payload
+  // Two-step: if this user has a pending two-step, complete it on ANY inbound message.
+  // We intentionally don't gate on account lookup here because the entry.id for messaging
+  // events may differ from the igId stored on the rule (page ID vs Instagram account ID).
   const pending = await getPendingTwoStepForUser(senderId)
-  if (pending && (quickReplyPayload === 'TRIGGER_STEP2' || text === (pending.triggerWord || 'yes'))) {
+  if (pending) {
     const rules = await getRules()
     const rule = rules.find(r => r.id === pending.ruleId)
     if (rule) {
-      try {
-        const userInfo = await fetchUserName(senderId, account.token)
-        const messages = pending.keyword && rule.perKeywordMessages?.[pending.keyword]
-          ? rule.perKeywordMessages[pending.keyword]
-          : rule.messages
-        await sendDMToUser(senderId, messages, account.token, account.igId, userInfo)
-        await logDM(rule.id, senderId)
-        await clearPendingTwoStep(rule.id, senderId)
-        await logWebhookEvent({ type: 'two_step_completed', ruleId: rule.id, ruleName: rule.name, senderId })
-      } catch (err) {
-        await logWebhookEvent({ type: 'two_step_failed', ruleId: rule?.id, error: err.message })
+      // Resolve account: try by igAccountId first, then by rule.igId, then first account
+      const account = getAccountByIgId(igAccountId)
+        || getAccountByIgId(rule.igId)
+        || getAccounts()[0]
+      if (account) {
+        try {
+          const userInfo = await fetchUserName(senderId, account.token)
+          const messages = pending.keyword && rule.perKeywordMessages?.[pending.keyword]
+            ? rule.perKeywordMessages[pending.keyword]
+            : rule.messages
+          await sendDMToUser(senderId, messages, account.token, account.igId, userInfo)
+          await logDM(rule.id, senderId)
+          await clearPendingTwoStep(rule.id, senderId)
+          await logWebhookEvent({ type: 'two_step_completed', ruleId: rule.id, ruleName: rule.name, senderId })
+        } catch (err) {
+          await logWebhookEvent({ type: 'two_step_failed', ruleId: rule?.id, error: err.message })
+        }
+        return
       }
     }
+    // Pending exists but rule/account not found — clear stale pending
+    await clearPendingTwoStep(pending.ruleId, senderId)
     return
   }
+
+  const account = getAccountByIgId(igAccountId)
+  if (!account) return
 
   // DM keyword triggers
   if (!text) return
@@ -286,7 +297,13 @@ async function processChange(igAccountId, change) {
     }
 
     try {
-      await replyToComment(commentId, rule.commentReply || DEFAULT_COMMENT_REPLY, account.token)
+      const replyPool = rule.commentReplies?.length
+        ? rule.commentReplies
+        : rule.commentReply
+          ? [rule.commentReply]
+          : [DEFAULT_COMMENT_REPLY]
+      const replyText = replyPool[Math.floor(Math.random() * replyPool.length)]
+      await replyToComment(commentId, replyText, account.token)
       await logWebhookEvent({ type: 'comment_reply_sent', account: account.name, ruleId: rule.id, ruleName: rule.name, commentId, commentText })
       console.log('[webhook] comment reply sent!')
     } catch (err) {

@@ -347,7 +347,32 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 .rule-name-input:focus { border-bottom-color: var(--accent); }
 
-section { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; display: flex; flex-direction: column; }
+section { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column; }
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 16px 20px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s;
+}
+.section-header:hover { background: var(--bg); }
+.section-title { font-size: 15px; font-weight: 600; color: var(--text); }
+.section-chevron { font-size: 16px; color: var(--text-muted); transition: transform 0.15s; }
+.section-body { padding: 0 20px 20px; display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--border); padding-top: 16px; }
+
+/* Multiple comment replies */
+.comment-replies-list { display: flex; flex-direction: column; gap: 10px; }
+.comment-reply-row { display: flex; gap: 8px; align-items: flex-start; }
+.comment-reply-row textarea { flex: 1; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 14px; resize: vertical; font-family: inherit; outline: none; }
+.comment-reply-row textarea:focus { border-color: var(--accent); }
+.remove-reply-btn { flex-shrink: 0; margin-top: 6px; background: none; border: 1px solid var(--danger); color: var(--danger); border-radius: 6px; padding: 4px 8px; font-size: 12px; cursor: pointer; }
+.remove-reply-btn:hover { background: var(--danger); color: #fff; }
 
 .toggle { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; cursor: pointer; white-space: nowrap; }
 .toggle input[type="checkbox"], .toggle input[type="radio"] { width: 16px; height: 16px; accent-color: var(--accent); }
