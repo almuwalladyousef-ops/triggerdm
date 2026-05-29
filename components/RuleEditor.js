@@ -17,6 +17,7 @@ export default function RuleEditor({ initial }) {
     targetReels: [],
     keywords: [],
     messages: [],
+    commentReply: 'Sent you a DM.',
   })
   const [keywordInput, setKeywordInput] = useState('')
   const [saving, setSaving] = useState(false)
@@ -151,7 +152,18 @@ export default function RuleEditor({ initial }) {
       </section>
 
       <section>
-        <h3>3. Target Reels</h3>
+        <h3>3. Comment Reply</h3>
+        <p className="hint">Public reply posted under the matching comment after the DM is sent.</p>
+        <textarea
+          placeholder="Sent you a DM."
+          value={rule.commentReply || ''}
+          onChange={e => setRule(r => ({ ...r, commentReply: e.target.value }))}
+          rows={2}
+        />
+      </section>
+
+      <section>
+        <h3>4. Target Reels</h3>
         <p className="hint">
           {selectedAccount ? `Reels from ${selectedAccount.name}.` : 'Select an account first.'}
         </p>

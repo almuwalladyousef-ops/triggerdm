@@ -21,6 +21,7 @@ export async function POST(req) {
     targetReels: body.targetReels || [],
     keywords: body.keywords || [],
     messages: body.messages || [],
+    commentReply: body.commentReply || 'Sent you a DM.',
     createdAt: new Date().toISOString(),
   }
 

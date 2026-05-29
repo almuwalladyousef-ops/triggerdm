@@ -1,11 +1,12 @@
 import { verifySignature } from '@/lib/verify'
 import { getRules, hasBeenDMed, logDM } from '@/lib/driveDB'
-import { sendDM } from '@/lib/instagram'
+import { replyToComment, sendPrivateReply } from '@/lib/instagram'
 import { getAccountByIgId, getAccounts } from '@/lib/accounts'
 import axios from 'axios'
 
 const BASE = 'https://graph.facebook.com/v18.0'
 const WEBHOOK_FIELDS = 'comments,live_comments,messages,message_reactions,messaging_handover,message_edit'
+const DEFAULT_COMMENT_REPLY = 'Sent you a DM.'
 
 async function subscribeAllPages() {
   const accounts = getAccounts()
@@ -58,21 +59,27 @@ async function processWebhook(rawBody) {
   const body = JSON.parse(rawBody)
   console.log('[webhook] received:', JSON.stringify(body).slice(0, 500))
 
-  const entry = body.entry?.[0]
-  const igAccountId = entry?.id
-  const change = entry?.changes?.[0]
+  for (const entry of body.entry || []) {
+    const igAccountId = entry?.id
 
+    for (const change of entry?.changes || []) {
+      await processChange(igAccountId, change)
+    }
+  }
+}
+
+async function processChange(igAccountId, change) {
   console.log('[webhook] field:', change?.field, '| igAccountId:', igAccountId)
-
   if (change?.field !== 'comments') return
 
   const commentText = change.value?.text || ''
+  const commentId = change.value?.id
   const commenterId = change.value?.from?.id
   const mediaId = change.value?.media?.id
 
-  console.log('[webhook] comment:', commentText, '| commenter:', commenterId, '| media:', mediaId)
+  console.log('[webhook] comment:', commentText, '| commentId:', commentId, '| commenter:', commenterId, '| media:', mediaId)
 
-  if (!commenterId || !commentText) return
+  if (!commenterId || !commentId || !commentText) return
 
   const account = getAccountByIgId(igAccountId)
   console.log('[webhook] account found:', account?.name ?? 'NONE')
@@ -83,6 +90,7 @@ async function processWebhook(rawBody) {
 
   for (const rule of rules) {
     if (!rule.active) continue
+    if (rule.igId && rule.igId !== account.igId) { console.log('[webhook] rule', rule.name, 'skipped: account mismatch'); continue }
 
     const appliesToReel = rule.applyToAll || rule.targetReels?.includes(mediaId)
     if (!appliesToReel) { console.log('[webhook] rule', rule.name, 'skipped: reel mismatch'); continue }
@@ -93,9 +101,16 @@ async function processWebhook(rawBody) {
     const alreadyDMed = await hasBeenDMed(rule.id, commenterId)
     if (alreadyDMed) { console.log('[webhook] rule', rule.name, 'skipped: already DMed'); continue }
 
-    console.log('[webhook] sending DM for rule:', rule.name)
-    await sendDM(commenterId, rule.messages, account.token, account.igId)
-    await logDM(rule.id, commenterId)
-    console.log('[webhook] DM sent!')
+    try {
+      console.log('[webhook] sending private reply for rule:', rule.name)
+      await sendPrivateReply(commentId, rule.messages, account.token, account.igId)
+      await logDM(rule.id, commenterId)
+      console.log('[webhook] private reply sent!')
+
+      await replyToComment(commentId, rule.commentReply || DEFAULT_COMMENT_REPLY, account.token)
+      console.log('[webhook] comment reply sent!')
+    } catch (err) {
+      console.error('[webhook] failed to process rule:', rule.name, err.response?.data ?? err.message)
+    }
   }
 }
