@@ -2,7 +2,7 @@ import { getAccounts } from '@/lib/accounts'
 import axios from 'axios'
 
 const BASE = 'https://graph.facebook.com/v18.0'
-const FIELDS = 'comments,live_comments,messages,message_reactions,messaging_handover,message_edit'
+const PAGE_FIELDS = 'feed,messages,message_reactions,messaging_handovers,message_edits'
 
 export async function POST(req) {
   const secret = req.headers.get('x-admin-secret')
@@ -17,7 +17,7 @@ export async function POST(req) {
     try {
       const res = await axios.post(
         `${BASE}/${account.pageId}/subscribed_apps`,
-        { subscribed_fields: FIELDS },
+        { subscribed_fields: PAGE_FIELDS },
         { params: { access_token: account.token } }
       )
       results.push({ account: account.name, success: true, response: res.data })

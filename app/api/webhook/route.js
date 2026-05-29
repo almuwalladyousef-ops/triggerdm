@@ -5,7 +5,7 @@ import { getAccountByIgId, getAccounts } from '@/lib/accounts'
 import axios from 'axios'
 
 const BASE = 'https://graph.facebook.com/v18.0'
-const WEBHOOK_FIELDS = 'comments,live_comments,messages,message_reactions,messaging_handover,message_edit'
+const PAGE_WEBHOOK_FIELDS = 'feed,messages,message_reactions,messaging_handovers,message_edits'
 const DEFAULT_COMMENT_REPLY = 'Sent you a DM.'
 
 async function subscribeAllPages() {
@@ -14,7 +14,7 @@ async function subscribeAllPages() {
     try {
       await axios.post(
         `${BASE}/${account.pageId}/subscribed_apps`,
-        { subscribed_fields: WEBHOOK_FIELDS },
+        { subscribed_fields: PAGE_WEBHOOK_FIELDS },
         { params: { access_token: account.token } }
       )
       console.log('[webhook] subscribed page for:', account.name)
