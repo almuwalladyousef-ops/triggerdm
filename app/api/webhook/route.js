@@ -102,6 +102,11 @@ async function processWebhook(rawBody) {
 
 // Inbound DM: handle two-step button taps and DM keyword triggers
 async function processInboundMessage(igAccountId, msg) {
+  if (msg?.message?.is_echo) {
+    await logWebhookEvent({ type: 'skipped_message_echo', igAccountId, messageId: msg?.message?.mid })
+    return
+  }
+
   const senderId = msg?.sender?.id
   if (!senderId) return
 
@@ -121,6 +126,13 @@ async function processInboundMessage(igAccountId, msg) {
         || await getAccountByIgIdWithStoredToken(rule.igId)
         || (await getAccountsWithStoredTokens())[0]
       if (account) {
+        const alreadyDMed = await hasBeenDMed(rule.id, senderId, rule.retriggerDays ?? null)
+        await clearPendingTwoStep(rule.id, senderId)
+        if (alreadyDMed) {
+          await logWebhookEvent({ type: 'two_step_skipped_already_completed', ruleId: rule.id, ruleName: rule.name, senderId })
+          return
+        }
+
         try {
           const userInfo = await fetchUserName(senderId, account.token)
           const messages = pending.keyword && rule.perKeywordMessages?.[pending.keyword]
@@ -128,7 +140,6 @@ async function processInboundMessage(igAccountId, msg) {
             : rule.messages
           await sendDMToUser(senderId, messages, account.token, account.igId, userInfo)
           await logDM(rule.id, senderId)
-          await clearPendingTwoStep(rule.id, senderId)
           await logWebhookEvent({ type: 'two_step_completed', ruleId: rule.id, ruleName: rule.name, senderId })
         } catch (err) {
           await logWebhookEvent({ type: 'two_step_failed', ruleId: rule?.id, error: err.message })
@@ -138,6 +149,11 @@ async function processInboundMessage(igAccountId, msg) {
     }
     // Pending exists but rule/account not found — clear stale pending
     await clearPendingTwoStep(pending.ruleId, senderId)
+    return
+  }
+
+  if (quickReplyPayload === 'TRIGGER_STEP2') {
+    await logWebhookEvent({ type: 'two_step_button_ignored_without_pending', igAccountId, senderId })
     return
   }
 
@@ -263,6 +279,15 @@ async function processChange(igAccountId, change) {
       await logWebhookEvent({ type: 'skipped_already_dmed', account: account.name, ruleId: rule.id, ruleName: rule.name, commenterId, commentText, mediaId })
       console.log('[webhook] rule', rule.name, 'skipped: already DMed')
       continue
+    }
+
+    if (rule.twoStep) {
+      const pending = await getPendingTwoStepForUser(commenterId)
+      if (pending?.ruleId === rule.id) {
+        await logWebhookEvent({ type: 'skipped_two_step_already_pending', account: account.name, ruleId: rule.id, ruleName: rule.name, commenterId, commentText, mediaId })
+        console.log('[webhook] rule', rule.name, 'skipped: two-step already pending')
+        continue
+      }
     }
 
     const withinCap = await checkAndIncrementSendCap(rule.id, rule.sendCap || null)
