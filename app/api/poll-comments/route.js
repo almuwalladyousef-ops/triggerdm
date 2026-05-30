@@ -1,7 +1,10 @@
 import axios from 'axios'
 import { getAccountsWithStoredTokens } from '@/lib/accounts'
-import { getRules, hasBeenDMed, logDM, logWebhookEvent, checkAndIncrementSendCap } from '@/lib/driveDB'
-import { fetchUserName, replyToComment, sendPrivateReply } from '@/lib/instagram'
+import {
+  getRules, hasBeenDMed, logDM, logWebhookEvent, checkAndIncrementSendCap,
+  getPendingTwoStepForUser, setPendingTwoStep,
+} from '@/lib/driveDB'
+import { fetchUserName, replyToComment, sendPrivateReply, sendPrivateReplyWithButton } from '@/lib/instagram'
 
 const FACEBOOK_BASE = 'https://graph.facebook.com/v18.0'
 const INSTAGRAM_BASE = 'https://graph.instagram.com/v18.0'
@@ -42,10 +45,10 @@ function getMessagesForMatch(rule, commentText) {
   if (rule.perKeywordMessages && Object.keys(rule.perKeywordMessages).length > 0) {
     const lower = commentText.toLowerCase()
     for (const [kw, msgs] of Object.entries(rule.perKeywordMessages)) {
-      if (lower.includes(kw.toLowerCase()) && msgs?.length) return msgs
+      if (lower.includes(kw.toLowerCase()) && msgs?.length) return { messages: msgs, keyword: kw }
     }
   }
-  return rule.messages || []
+  return { messages: rule.messages || [], keyword: null }
 }
 
 function isWithinSchedule(rule) {
@@ -120,11 +123,27 @@ async function processPolledComment(account, rules, comment) {
       continue
     }
 
+    const userInfo = await fetchUserName(commenterId, account.token).catch(() => ({ name: '', username: '' }))
+    const { messages, keyword } = getMessagesForMatch(rule, commentText)
+
     try {
-      const userInfo = await fetchUserName(commenterId, account.token).catch(() => ({ name: '', username: '' }))
-      await sendPrivateReply(commentId, getMessagesForMatch(rule, commentText), account.token, account.igId, userInfo)
-      await logDM(rule.id, commenterId)
-      await logWebhookEvent({ type: 'poll_private_reply_sent', account: account.name, ruleId: rule.id, ruleName: rule.name, commenterId, commentId, commentText, mediaId, timestamp })
+      if (rule.twoStep) {
+        const pending = await getPendingTwoStepForUser(commenterId)
+        if (pending?.ruleId === rule.id) {
+          await logWebhookEvent({ type: 'poll_skipped_two_step_already_pending', account: account.name, ruleId: rule.id, ruleName: rule.name, commenterId, commentText, mediaId, commentId })
+          continue
+        }
+
+        const prompt = rule.twoStepPrompt || 'Tap below to receive the link!'
+        const btnText = rule.twoStepButtonText || 'Send me!'
+        await sendPrivateReplyWithButton(commentId, prompt, btnText, account.token, account.igId, userInfo)
+        await setPendingTwoStep(rule.id, commenterId, { keyword, triggerWord: 'yes' })
+        await logWebhookEvent({ type: 'poll_two_step_initiated', account: account.name, ruleId: rule.id, ruleName: rule.name, commenterId, commentId, commentText, mediaId, timestamp })
+      } else {
+        await sendPrivateReply(commentId, messages, account.token, account.igId, userInfo)
+        await logDM(rule.id, commenterId)
+        await logWebhookEvent({ type: 'poll_private_reply_sent', account: account.name, ruleId: rule.id, ruleName: rule.name, commenterId, commentId, commentText, mediaId, timestamp })
+      }
     } catch (err) {
       await logWebhookEvent({ type: 'poll_private_reply_failed', account: account.name, ruleId: rule.id, ruleName: rule.name, commentId, commentText, error: err.response?.data ?? err.message })
       continue

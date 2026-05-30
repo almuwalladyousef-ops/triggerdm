@@ -41,7 +41,10 @@ export default function SettingsPage() {
                   <span className="account-status-error">{acc.error}</span>
                 )}
               </div>
-              <a className="btn-primary" href={`/auth/meta/start?account=${acc.key}`}>
+              <a
+                className="btn-primary"
+                href={`${acc.authType === 'instagram' ? '/auth/instagram/start' : '/auth/meta/start'}?account=${acc.key}`}
+              >
                 {acc.valid ? 'Reconnect' : 'Connect'}
               </a>
             </div>

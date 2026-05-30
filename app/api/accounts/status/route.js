@@ -25,7 +25,14 @@ export async function GET() {
   const results = await Promise.all(
     accounts.map(async account => {
       const { valid, error } = await checkToken(account)
-      return { name: account.name, igId: account.igId, key: account.key, valid, error }
+      return {
+        name: account.name,
+        igId: account.igId,
+        key: account.key,
+        authType: account.token?.startsWith('IGA') ? 'instagram' : 'facebook',
+        valid,
+        error,
+      }
     })
   )
   return NextResponse.json(results)

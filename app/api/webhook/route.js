@@ -8,7 +8,7 @@ import {
   replyToComment, sendPrivateReply, sendPrivateReplyWithButton,
   sendDMToUser, fetchUserName,
 } from '@/lib/instagram'
-import { getAccountByIgIdWithStoredToken, getAccountsWithStoredTokens } from '@/lib/accounts'
+import { getAccountByIgIdWithStoredToken, getAccountsWithStoredTokens, resolveAccountForWebhookId } from '@/lib/accounts'
 import axios from 'axios'
 
 const BASE = 'https://graph.facebook.com/v18.0'
@@ -122,7 +122,7 @@ async function processInboundMessage(igAccountId, msg) {
     const rule = rules.find(r => r.id === pending.ruleId)
     if (rule) {
       // Resolve account: try by igAccountId first, then by rule.igId, then first account
-      const account = await getAccountByIgIdWithStoredToken(igAccountId)
+      const account = await resolveAccountForWebhookId(igAccountId)
         || await getAccountByIgIdWithStoredToken(rule.igId)
         || (await getAccountsWithStoredTokens())[0]
       if (account) {
@@ -157,8 +157,11 @@ async function processInboundMessage(igAccountId, msg) {
     return
   }
 
-  const account = await getAccountByIgIdWithStoredToken(igAccountId)
-  if (!account) return
+  const account = await resolveAccountForWebhookId(igAccountId)
+  if (!account) {
+    await logWebhookEvent({ type: 'skipped_message_no_account', igAccountId, senderId, text })
+    return
+  }
 
   // DM keyword triggers
   if (!text) return
@@ -252,7 +255,7 @@ async function processChange(igAccountId, change) {
     return
   }
 
-  const account = await getAccountByIgIdWithStoredToken(igAccountId)
+  const account = await resolveAccountForWebhookId(igAccountId)
   if (!account) {
     await logWebhookEvent({ type: 'skipped_no_account', igAccountId, commentId, commenterId, commentText, mediaId })
     return
