@@ -134,8 +134,8 @@ async function processPolledComment(account, rules, comment) {
           continue
         }
 
-        const prompt = rule.twoStepPrompt || 'Tap below to receive the link!'
-        const btnText = rule.twoStepButtonText || 'Send me!'
+        const prompt = rule.twoStepPrompt || 'Want me to send the link?'
+        const btnText = rule.twoStepButtonText || 'Send It In 5 min!'
         await sendPrivateReplyWithButton(commentId, prompt, btnText, account.token, account.igId, userInfo)
         await setPendingTwoStep(rule.id, commenterId, { keyword, triggerWord: 'yes' })
         await logWebhookEvent({ type: 'poll_two_step_initiated', account: account.name, ruleId: rule.id, ruleName: rule.name, commenterId, commentId, commentText, mediaId, timestamp })

@@ -4,6 +4,9 @@ import { useRouter } from 'next/navigation'
 import MessageBuilder from './MessageBuilder'
 import ReelPicker from './ReelPicker'
 
+const DEFAULT_TWO_STEP_PROMPT = 'Want me to send the link?'
+const DEFAULT_TWO_STEP_BUTTON_TEXT = 'Send It In 5 min!'
+
 function Section({ id, title, open, onToggle, children, mandatory, alwaysOpen }) {
   return (
     <section id={id} className={`rule-section ${mandatory ? 'section--mandatory' : ''}`}>
@@ -48,8 +51,8 @@ export default function RuleEditor({ initial }) {
       perKeywordMessages: {},
       messages: [],
       twoStep: false,
-      twoStepPrompt: '',
-      twoStepButtonText: 'Send me!',
+      twoStepPrompt: DEFAULT_TWO_STEP_PROMPT,
+      twoStepButtonText: DEFAULT_TWO_STEP_BUTTON_TEXT,
       fallbackMessage: '',
       commentReplies: ['Sent you a DM.'],
       sendCap: '',
@@ -63,7 +66,12 @@ export default function RuleEditor({ initial }) {
       : initial.commentReply
         ? [initial.commentReply]
         : ['Sent you a DM.']
-    return { ...initial, commentReplies }
+    return {
+      ...initial,
+      twoStepPrompt: initial.twoStepPrompt || DEFAULT_TWO_STEP_PROMPT,
+      twoStepButtonText: initial.twoStepButtonText || DEFAULT_TWO_STEP_BUTTON_TEXT,
+      commentReplies,
+    }
   })
 
   const [keywordInput, setKeywordInput] = useState('')
@@ -238,6 +246,8 @@ export default function RuleEditor({ initial }) {
 
   const selectedAccount = accounts.find(a => a.igId === rule.igId)
   const commentReplies = rule.commentReplies || ['Sent you a DM.']
+  const twoStepPromptPreview = rule.twoStepPrompt?.trim() || DEFAULT_TWO_STEP_PROMPT
+  const twoStepButtonPreview = rule.twoStepButtonText?.trim() || DEFAULT_TWO_STEP_BUTTON_TEXT
 
   return (
     <div className="rule-editor">
@@ -382,27 +392,48 @@ export default function RuleEditor({ initial }) {
       </Section>
 
       <Section id="rule-two-step" title="3. Two-Step Opt-In" open={!!sectionOpen.twostep} onToggle={() => toggleSection('twostep')}>
-        <p className="hint">Send a teaser first. They tap a button to get the actual DM message (step 4).</p>
+        <p className="hint">Send the first DM as a prompt with a tappable button. When they tap it, the DM message in step 4 gets sent.</p>
         <label className="toggle" style={{ marginBottom: '16px' }}>
-          <input type="checkbox" checked={rule.twoStep} onChange={e => set('twoStep', e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={rule.twoStep}
+            onChange={e => {
+              const checked = e.target.checked
+              setRule(r => ({
+                ...r,
+                twoStep: checked,
+                twoStepPrompt: r.twoStepPrompt || DEFAULT_TWO_STEP_PROMPT,
+                twoStepButtonText: r.twoStepButtonText || DEFAULT_TWO_STEP_BUTTON_TEXT,
+              }))
+            }}
+          />
           Enable two-step opt-in
         </label>
         {rule.twoStep && (
           <div className="two-step-fields">
-            <label className="field-label">Teaser message (step 1)</label>
-            <textarea
-              placeholder="e.g. Hey! Want me to send you the link? Tap below 👇"
-              value={rule.twoStepPrompt}
-              onChange={e => set('twoStepPrompt', e.target.value)}
-              rows={2}
-            />
-            <label className="field-label" style={{ marginTop: '12px' }}>Button label</label>
-            <input
-              type="text"
-              placeholder="Send me!"
-              value={rule.twoStepButtonText}
-              onChange={e => set('twoStepButtonText', e.target.value)}
-            />
+            <div className="two-step-config">
+              <label className="field-label">First DM message</label>
+              <textarea
+                placeholder={DEFAULT_TWO_STEP_PROMPT}
+                value={rule.twoStepPrompt}
+                onChange={e => set('twoStepPrompt', e.target.value)}
+                rows={3}
+              />
+              <label className="field-label" style={{ marginTop: '12px' }}>Button label</label>
+              <input
+                type="text"
+                placeholder={DEFAULT_TWO_STEP_BUTTON_TEXT}
+                value={rule.twoStepButtonText}
+                onChange={e => set('twoStepButtonText', e.target.value)}
+              />
+            </div>
+            <div className="two-step-preview" aria-label="Two-step DM preview">
+              <p className="preview-label">Recipient DM Preview</p>
+              <div className="two-step-dm-bubble">
+                <p>{twoStepPromptPreview}</p>
+                <div className="two-step-dm-button">{twoStepButtonPreview}</div>
+              </div>
+            </div>
           </div>
         )}
       </Section>

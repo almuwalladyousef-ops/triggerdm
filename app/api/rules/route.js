@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { getRules, saveRule, deleteRules, bulkUpdateRules } from '@/lib/driveDB'
 import { v4 as uuid } from 'uuid'
 
+const DEFAULT_TWO_STEP_BUTTON_TEXT = 'Send It In 5 min!'
+
 function buildRule(body, id, createdAt) {
   return {
     id,
@@ -20,7 +22,7 @@ function buildRule(body, id, createdAt) {
     messages: body.messages || [],
     twoStep: body.twoStep ?? false,
     twoStepPrompt: body.twoStepPrompt || '',
-    twoStepButtonText: body.twoStepButtonText || 'Send me!',
+    twoStepButtonText: body.twoStepButtonText || DEFAULT_TWO_STEP_BUTTON_TEXT,
     fallbackMessage: body.fallbackMessage || '',
     commentReply: body.commentReply || 'Sent you a DM.',
     sendCap: body.sendCap ?? null,             // max DMs per day
