@@ -4,9 +4,9 @@ import { useRouter } from 'next/navigation'
 import MessageBuilder from './MessageBuilder'
 import ReelPicker from './ReelPicker'
 
-function Section({ title, open, onToggle, children, mandatory, alwaysOpen }) {
+function Section({ id, title, open, onToggle, children, mandatory, alwaysOpen }) {
   return (
-    <section className={mandatory ? 'section--mandatory' : ''}>
+    <section id={id} className={`rule-section ${mandatory ? 'section--mandatory' : ''}`}>
       {alwaysOpen ? (
         <div className="section-header section-header--static">
           <span className="section-title">{title}</span>
@@ -81,6 +81,13 @@ export default function RuleEditor({ initial }) {
 
   function toggleSection(key) {
     setSectionOpen(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  function jumpToSection(id, openKey) {
+    if (openKey) setSectionOpen(prev => ({ ...prev, [openKey]: true }))
+    requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   }
 
   useEffect(() => {
@@ -258,7 +265,15 @@ export default function RuleEditor({ initial }) {
         </div>
       )}
 
-      <Section title="Account" mandatory alwaysOpen>
+      <div className="rule-flow-tabs" aria-label="Rule setup flow">
+        <button type="button" onClick={() => jumpToSection('rule-account')}>Account</button>
+        <button type="button" onClick={() => jumpToSection('rule-comments', 'triggers')}>Comments</button>
+        <button type="button" onClick={() => jumpToSection('rule-dm-message', 'message')}>DM</button>
+        <button type="button" onClick={() => jumpToSection('rule-reels')}>Reels</button>
+        <button type="button" onClick={() => jumpToSection('rule-controls', 'controls')}>Controls</button>
+      </div>
+
+      <Section id="rule-account" title="Account" mandatory alwaysOpen>
         <p className="hint">Which Instagram account this rule belongs to.</p>
         <div className="account-tabs">
           {accounts.map(a => (
@@ -274,7 +289,7 @@ export default function RuleEditor({ initial }) {
         </div>
       </Section>
 
-      <Section title="1. Comment Triggers" mandatory open={!!sectionOpen.triggers} onToggle={() => toggleSection('triggers')}>
+      <Section id="rule-comments" title="1. Comment Triggers" mandatory open={!!sectionOpen.triggers} onToggle={() => toggleSection('triggers')}>
         <p className="hint">When to send the DM based on comment content.</p>
         <label className="toggle" style={{ marginBottom: '16px' }}>
           <input type="checkbox" checked={rule.anyComment} onChange={e => set('anyComment', e.target.checked)} />
@@ -345,7 +360,7 @@ export default function RuleEditor({ initial }) {
         )}
       </Section>
 
-      <Section title="2. DM Keyword Triggers (optional)" open={!!sectionOpen.dmkw} onToggle={() => toggleSection('dmkw')}>
+      <Section id="rule-dm-keywords" title="2. DM Keyword Triggers (optional)" open={!!sectionOpen.dmkw} onToggle={() => toggleSection('dmkw')}>
         <p className="hint">Also trigger this rule when someone DMs you one of these words directly.</p>
         <div className="keyword-input-row">
           <input
@@ -366,7 +381,7 @@ export default function RuleEditor({ initial }) {
         </div>
       </Section>
 
-      <Section title="3. Two-Step Opt-In" open={!!sectionOpen.twostep} onToggle={() => toggleSection('twostep')}>
+      <Section id="rule-two-step" title="3. Two-Step Opt-In" open={!!sectionOpen.twostep} onToggle={() => toggleSection('twostep')}>
         <p className="hint">Send a teaser first. They tap a button to get the actual DM message (step 4).</p>
         <label className="toggle" style={{ marginBottom: '16px' }}>
           <input type="checkbox" checked={rule.twoStep} onChange={e => set('twoStep', e.target.checked)} />
@@ -392,7 +407,7 @@ export default function RuleEditor({ initial }) {
         )}
       </Section>
 
-      <Section title="4. DM Message" mandatory open={!!sectionOpen.message} onToggle={() => toggleSection('message')}>
+      <Section id="rule-dm-message" title="4. DM Message" mandatory open={!!sectionOpen.message} onToggle={() => toggleSection('message')}>
         <p className="hint">The message sent to the commenter. Use {`{{first_name}}`} to personalize.</p>
         <MessageBuilder
           messages={rule.messages}
@@ -400,7 +415,7 @@ export default function RuleEditor({ initial }) {
         />
       </Section>
 
-      <Section title="5. Comment Reply" open={!!sectionOpen.reply} onToggle={() => toggleSection('reply')}>
+      <Section id="rule-comment-reply" title="5. Comment Reply" open={!!sectionOpen.reply} onToggle={() => toggleSection('reply')}>
         <p className="hint">
           Public reply posted under the comment after the DM is sent. Add up to 5 variants — one is picked at random each time.
         </p>
@@ -435,7 +450,7 @@ export default function RuleEditor({ initial }) {
         </p>
       </Section>
 
-      <Section title="6. Controls" open={!!sectionOpen.controls} onToggle={() => toggleSection('controls')}>
+      <Section id="rule-controls" title="6. Controls" open={!!sectionOpen.controls} onToggle={() => toggleSection('controls')}>
         <div className="controls-grid">
           <div className="control-group">
             <label className="field-label">Daily send cap</label>
@@ -481,7 +496,7 @@ export default function RuleEditor({ initial }) {
       </Section>
 
       {!isNew && (
-        <Section title="Test Send" open={!!sectionOpen.test} onToggle={() => toggleSection('test')}>
+        <Section id="rule-test-send" title="Test Send" open={!!sectionOpen.test} onToggle={() => toggleSection('test')}>
           <p className="hint">Send a test DM to your own Instagram user ID to preview the message.</p>
           <div className="keyword-input-row">
             <input
@@ -498,7 +513,7 @@ export default function RuleEditor({ initial }) {
         </Section>
       )}
 
-      <Section title="7. Target Reels" mandatory alwaysOpen>
+      <Section id="rule-reels" title="7. Target Reels" mandatory alwaysOpen>
         <p className="hint">
           {selectedAccount ? `Reels from ${selectedAccount.name}.` : 'Select an account first.'}
         </p>
