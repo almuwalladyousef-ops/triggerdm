@@ -73,7 +73,7 @@ export default function MessageBuilder({ messages, onChange }) {
   }
 
   const textBlockCount = blocks.filter(b => b.type === 'text').length
-  const hasButton = blocks.some(b => b.type === 'button')
+  const buttonCount = blocks.filter(b => b.type === 'button').length
 
   return (
     <div className="message-builder">
@@ -158,7 +158,7 @@ export default function MessageBuilder({ messages, onChange }) {
       <div className="add-buttons">
         <button onClick={() => addBlock('text')}>+ Message</button>
         <button onClick={() => addBlock('link')}>+ Link</button>
-        {!hasButton && (
+        {buttonCount < 3 && (
           <button onClick={() => addBlock('button')} title="Tappable link button in DM">+ Button</button>
         )}
       </div>
@@ -167,7 +167,7 @@ export default function MessageBuilder({ messages, onChange }) {
         <div className="preview">
           <p className="preview-label">DM Preview</p>
           <p className="preview-note">
-            All blocks arrive as one combined message in the DM inbox.
+            Button blocks arrive as tappable Instagram buttons under the message.
           </p>
           <div className="preview-bubble">
             {blocks.map((b, i) => {
