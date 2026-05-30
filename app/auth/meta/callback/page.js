@@ -62,7 +62,24 @@ export default async function MetaCallback({ searchParams }) {
 
     const page = (pages.data || []).find(p => p.instagram_business_account?.id === TARGET_IG_ID)
     if (!page?.access_token) {
-      throw new Error(`Logged-in Facebook account has no Page linked to the ${label} Instagram ID ${TARGET_IG_ID}. Make sure you authorize with the account that manages that page.`)
+      const available = (pages.data || []).map(p => ({
+        pageId: p.id,
+        pageName: p.name,
+        igId: p.instagram_business_account?.id || null,
+        igUsername: p.instagram_business_account?.username || null,
+      }))
+      await logWebhookEvent({ type: 'meta_oauth_no_match', tokenKey, targetIgId: TARGET_IG_ID, available }).catch(() => {})
+      return (
+        <main style={{ fontFamily: 'sans-serif', padding: 32, lineHeight: 1.5 }}>
+          <h1>No matching page found</h1>
+          <p>Looking for {label} Instagram ID <strong>{TARGET_IG_ID}</strong>, but the pages you granted were:</p>
+          <pre style={{ background: '#f4f4f4', padding: 16, borderRadius: 8, overflow: 'auto' }}>
+            {JSON.stringify(available, null, 2)}
+          </pre>
+          <p>If the correct Instagram account appears above with a different ID, update BUSINESS_IG_ID to that value. If no Instagram account is linked, the page needs an Instagram Business account connected.</p>
+          <p><a href="/auth/meta/start?account=BUSINESS_PAGE_TOKEN">Restart Meta sign-in</a></p>
+        </main>
+      )
     }
 
     await saveStoredToken(tokenKey, page.access_token, {
