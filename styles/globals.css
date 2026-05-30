@@ -678,3 +678,25 @@ input, textarea { font-family: inherit; }
   /* Message builder */
   .add-buttons { flex-wrap: wrap; }
 }
+
+/* Settings — account status */
+.account-status-list { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+.account-status-card {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px 18px;
+}
+.account-status-info { display: flex; flex-direction: column; gap: 6px; }
+.account-status-name { font-weight: 600; font-size: 15px; }
+.account-status-error { font-size: 12px; color: var(--text-muted); max-width: 480px; }
+.badge {
+  display: inline-block; width: fit-content; font-size: 12px; font-weight: 600;
+  padding: 2px 10px; border-radius: 999px;
+}
+.badge-ok { background: var(--success-bg); color: #15803d; }
+.badge-bad { background: var(--danger-bg); color: var(--danger); }
+
+@media (max-width: 640px) {
+  .account-status-card { flex-direction: column; align-items: stretch; }
+  .account-status-card .btn-primary { text-align: center; }
+}
