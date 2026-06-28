@@ -2,6 +2,7 @@ import '@/styles/globals.css'
 import BottomNav from '@/components/BottomNav'
 import MobileWorkspaceBar from '@/components/MobileWorkspaceBar'
 import Sidebar from '@/components/Sidebar'
+import DesktopBackButton from '@/components/DesktopBackButton'
 
 export const metadata = {
   title: 'TriggerDM',
@@ -19,6 +20,7 @@ export default function RootLayout({ children }) {
             {children}
           </main>
           <BottomNav />
+          <DesktopBackButton />
         </div>
       </body>
     </html>

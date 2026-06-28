@@ -1,22 +1,46 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import useActiveWorkspace from '@/components/useActiveWorkspace'
+import { openInBrowser } from '@/lib/desktop'
 
 export default function SettingsPage() {
   const [accounts, setAccounts] = useState(null)
   const [error, setError] = useState(null)
   const { activeWorkspace, loadingWorkspaces } = useActiveWorkspace()
 
-  useEffect(() => {
+  const refresh = useCallback(() => {
     if (!activeWorkspace?.id) return
-
-    setAccounts(null)
     fetch(`/api/accounts/status?workspaceId=${activeWorkspace.id}`)
       .then(r => r.json())
       .then(setAccounts)
       .catch(() => setError('Could not load account status.'))
   }, [activeWorkspace?.id])
+
+  useEffect(() => {
+    if (!activeWorkspace?.id) return
+    setAccounts(null)
+    refresh()
+  }, [activeWorkspace?.id, refresh])
+
+  // When connecting opens Chrome, the webview keeps showing the old status.
+  // Re-check whenever the user returns to the app so the badge updates.
+  useEffect(() => {
+    const onFocus = () => refresh()
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onFocus)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onFocus)
+    }
+  }, [refresh])
+
+  const startConnect = (path) => (e) => {
+    // Inside the Content OS desktop view, pop OAuth into the user's real Chrome
+    // (saved passwords) instead of navigating the webview. On the web, this is a
+    // no-op and the normal link navigation proceeds.
+    if (openInBrowser(path)) e.preventDefault()
+  }
 
   return (
     <div className="page">
@@ -54,6 +78,7 @@ export default function SettingsPage() {
               <a
                 className="btn-primary"
                 href={`/auth/meta/start?workspace=${activeWorkspace?.id || acc.workspaceId}`}
+                onClick={startConnect(`/auth/meta/start?workspace=${activeWorkspace?.id || acc.workspaceId}`)}
               >
                 {acc.valid ? 'Reconnect' : 'Connect'}
               </a>
