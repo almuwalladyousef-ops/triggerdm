@@ -34,7 +34,7 @@ export default function ReelPicker({ igId, selected, applyToAll, onChange }) {
 
       {!applyToAll && (
         <>
-          {!igId && <p className="hint">Select an account above to see its reels.</p>}
+          {!igId && <p className="hint">Select a workspace to see its reels.</p>}
           {igId && loading && <p className="loading">Loading reels…</p>}
           {igId && !loading && reels.length === 0 && (
             <p className="empty">No reels found for this account.</p>

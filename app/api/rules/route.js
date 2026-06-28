@@ -9,6 +9,7 @@ function buildRule(body, id, createdAt) {
     id,
     name: body.name || 'Untitled Rule',
     active: body.active ?? true,
+    workspaceId: body.workspaceId || null,
     igId: body.igId || null,
     applyToAll: body.applyToAll ?? false,
     targetReels: body.targetReels || [],
@@ -25,6 +26,7 @@ function buildRule(body, id, createdAt) {
     twoStepButtonText: body.twoStepButtonText || DEFAULT_TWO_STEP_BUTTON_TEXT,
     fallbackMessage: body.fallbackMessage || '',
     commentReply: body.commentReply || 'Sent you a DM.',
+    commentReplies: body.commentReplies || ['Sent you a DM.'],
     sendCap: body.sendCap ?? null,             // max DMs per day
     retriggerDays: body.retriggerDays ?? null, // allow re-trigger after N days
     startDate: body.startDate || null,
@@ -36,7 +38,9 @@ function buildRule(body, id, createdAt) {
 export async function GET(req) {
   const { searchParams } = new URL(req.url)
   const igId = searchParams.get('igId')
+  const workspaceId = searchParams.get('workspaceId')
   const rules = await getRules()
+  if (workspaceId) return NextResponse.json(rules.filter(r => r.workspaceId === workspaceId))
   return NextResponse.json(igId ? rules.filter(r => r.igId === igId) : rules)
 }
 

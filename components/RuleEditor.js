@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import MessageBuilder from './MessageBuilder'
 import ReelPicker from './ReelPicker'
+import { getStoredWorkspaceId, resolveActiveWorkspace, storeWorkspaceId } from './WorkspaceSwitcher'
 
 const DEFAULT_TWO_STEP_PROMPT = 'Want me to send the link?'
 const DEFAULT_TWO_STEP_BUTTON_TEXT = 'Send It In 5 min!'
@@ -33,12 +34,13 @@ export default function RuleEditor({ initial }) {
   const router = useRouter()
   const isNew = !initial?.id
 
-  const [accounts, setAccounts] = useState([])
+  const [workspaces, setWorkspaces] = useState([])
   const [allRules, setAllRules] = useState([])
   const [rule, setRule] = useState(() => {
     if (!initial) return {
       name: '',
       active: true,
+      workspaceId: null,
       igId: null,
       applyToAll: false,
       targetReels: [],
@@ -100,16 +102,46 @@ export default function RuleEditor({ initial }) {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/accounts').then(r => r.json()),
+      fetch('/api/workspaces').then(r => r.json()),
       fetch('/api/rules').then(r => r.json()),
-    ]).then(([accs, rls]) => {
-      setAccounts(accs)
+    ]).then(([wss, rls]) => {
+      setWorkspaces(wss)
       setAllRules(rls)
-      if (isNew && accs.length > 0 && !rule.igId) {
-        setRule(r => ({ ...r, igId: accs[0].igId }))
+      const storedId = getStoredWorkspaceId()
+      const inferred = initial?.workspaceId
+        ? wss.find(w => w.id === initial.workspaceId)
+        : wss.find(w => w.igId === initial?.igId)
+      const workspace = isNew ? resolveActiveWorkspace(wss, storedId) : inferred
+      if (workspace) {
+        if (isNew) storeWorkspaceId(workspace.id)
+        setRule(r => ({
+          ...r,
+          workspaceId: workspace.id,
+          igId: workspace.igId,
+          targetReels: r.igId === workspace.igId ? r.targetReels : [],
+          applyToAll: r.igId === workspace.igId ? r.applyToAll : false,
+        }))
       }
     }).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    function handleWorkspaceChange(event) {
+      if (!isNew) return
+      const workspace = workspaces.find(w => w.id === event.detail?.id)
+      if (!workspace) return
+      setRule(r => ({
+        ...r,
+        workspaceId: workspace.id,
+        igId: workspace.igId,
+        targetReels: r.igId === workspace.igId ? r.targetReels : [],
+        applyToAll: r.igId === workspace.igId ? r.applyToAll : false,
+      }))
+    }
+
+    window.addEventListener('workspacechange', handleWorkspaceChange)
+    return () => window.removeEventListener('workspacechange', handleWorkspaceChange)
+  }, [isNew, workspaces])
 
   const overlaps = allRules.filter(r => {
     if (r.id === rule.id || !r.active) return false
@@ -159,13 +191,9 @@ export default function RuleEditor({ initial }) {
     set('commentReplies', (rule.commentReplies || []).filter((_, i) => i !== index))
   }
 
-  function selectAccount(igId) {
-    setRule(r => ({ ...r, igId, targetReels: [], applyToAll: false }))
-  }
-
   async function save() {
     if (!rule.name) return setError('Give this rule a name.')
-    if (!rule.igId) return setError('Select an account.')
+    if (!rule.workspaceId || !rule.igId) return setError('Select a workspace before creating a rule.')
     if (!rule.anyComment && rule.keywords.length === 0 && !rule.dmKeywords?.length) {
       return setError('Add at least one keyword, enable "Any comment", or add DM keywords.')
     }
@@ -244,7 +272,7 @@ export default function RuleEditor({ initial }) {
     setTestSending(false)
   }
 
-  const selectedAccount = accounts.find(a => a.igId === rule.igId)
+  const selectedWorkspace = workspaces.find(w => w.id === rule.workspaceId) || workspaces.find(w => w.igId === rule.igId)
   const commentReplies = rule.commentReplies || ['Sent you a DM.']
   const twoStepPromptPreview = rule.twoStepPrompt?.trim() || DEFAULT_TWO_STEP_PROMPT
   const twoStepButtonPreview = rule.twoStepButtonText?.trim() || DEFAULT_TWO_STEP_BUTTON_TEXT
@@ -276,28 +304,16 @@ export default function RuleEditor({ initial }) {
       )}
 
       <div className="rule-flow-tabs" aria-label="Rule setup flow">
-        <button type="button" onClick={() => jumpToSection('rule-account')}>Account</button>
         <button type="button" onClick={() => jumpToSection('rule-comments', 'triggers')}>Comments</button>
         <button type="button" onClick={() => jumpToSection('rule-dm-message', 'message')}>DM</button>
         <button type="button" onClick={() => jumpToSection('rule-reels')}>Reels</button>
         <button type="button" onClick={() => jumpToSection('rule-controls', 'controls')}>Controls</button>
       </div>
 
-      <Section id="rule-account" title="Account" mandatory alwaysOpen>
-        <p className="hint">Which Instagram account this rule belongs to.</p>
-        <div className="account-tabs">
-          {accounts.map(a => (
-            <button
-              key={a.igId}
-              type="button"
-              className={`account-tab ${rule.igId === a.igId ? 'selected' : ''}`}
-              onClick={() => selectAccount(a.igId)}
-            >
-              {a.name}
-            </button>
-          ))}
-        </div>
-      </Section>
+      <div className="workspace-context">
+        <span>Workspace</span>
+        <strong>{selectedWorkspace?.name || 'No workspace selected'}</strong>
+      </div>
 
       <Section id="rule-comments" title="1. Comment Triggers" mandatory open={!!sectionOpen.triggers} onToggle={() => toggleSection('triggers')}>
         <p className="hint">When to send the DM based on comment content.</p>
@@ -546,7 +562,7 @@ export default function RuleEditor({ initial }) {
 
       <Section id="rule-reels" title="7. Target Reels" mandatory alwaysOpen>
         <p className="hint">
-          {selectedAccount ? `Reels from ${selectedAccount.name}.` : 'Select an account first.'}
+          {selectedWorkspace ? `Reels from ${selectedWorkspace.name}.` : 'Select a workspace first.'}
         </p>
         <ReelPicker
           igId={rule.igId}
