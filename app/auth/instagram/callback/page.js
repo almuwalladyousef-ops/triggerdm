@@ -1,6 +1,6 @@
 import { logWebhookEvent, saveStoredToken } from '@/lib/driveDB'
+import { getBaseUrlFromHeaders } from '@/lib/oauth'
 
-const REDIRECT_URI = 'https://triggerdm.vercel.app/auth/instagram/callback'
 const DEFAULT_INSTAGRAM_APP_ID = '2415208742325516'
 
 const ACCOUNTS = {
@@ -13,12 +13,12 @@ function resolveTarget(state) {
   return { tokenKey, label: ACCOUNTS[tokenKey].label, igId: process.env[ACCOUNTS[tokenKey].igEnvVar] }
 }
 
-async function exchangeCodeForToken(code, appId, appSecret) {
+async function exchangeCodeForToken(code, appId, appSecret, redirectUri) {
   const body = new URLSearchParams({
     client_id: appId,
     client_secret: appSecret,
     grant_type: 'authorization_code',
-    redirect_uri: REDIRECT_URI,
+    redirect_uri: redirectUri,
     code,
   })
 
@@ -49,7 +49,7 @@ async function exchangeForLongLivedToken(shortLivedToken, appSecret) {
 }
 
 async function fetchInstagramAccount(token) {
-  const url = new URL('https://graph.instagram.com/v18.0/me')
+  const url = new URL('https://graph.instagram.com/v21.0/me')
   url.searchParams.set('fields', 'id,user_id,username,account_type')
   url.searchParams.set('access_token', token)
 
@@ -74,7 +74,8 @@ export default async function InstagramCallback({ searchParams }) {
     if (!appSecret) throw new Error('Missing INSTAGRAM_APP_SECRET/META_INSTAGRAM_APP_SECRET in Vercel')
     if (!targetIgId) throw new Error(`Missing ${ACCOUNTS[tokenKey].igEnvVar} in Vercel`)
 
-    const shortLived = await exchangeCodeForToken(searchParams.code, appId, appSecret)
+    const redirectUri = `${await getBaseUrlFromHeaders()}/auth/instagram/callback`
+    const shortLived = await exchangeCodeForToken(searchParams.code, appId, appSecret, redirectUri)
     const longLived = await exchangeForLongLivedToken(shortLived.access_token, appSecret)
     const account = await fetchInstagramAccount(longLived.access_token)
 

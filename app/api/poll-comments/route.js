@@ -6,8 +6,8 @@ import {
 } from '@/lib/driveDB'
 import { fetchUserName, replyToComment, sendPrivateReply, sendPrivateReplyWithButton } from '@/lib/instagram'
 
-const FACEBOOK_BASE = 'https://graph.facebook.com/v18.0'
-const INSTAGRAM_BASE = 'https://graph.instagram.com/v18.0'
+const FACEBOOK_BASE = 'https://graph.facebook.com/v21.0'
+const INSTAGRAM_BASE = 'https://graph.instagram.com/v21.0'
 const DEFAULT_COMMENT_REPLY = 'Sent you a DM.'
 
 function isInstagramLoginToken(token) {

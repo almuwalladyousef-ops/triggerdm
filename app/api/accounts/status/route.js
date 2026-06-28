@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import axios from 'axios'
 import { getAccountsWithStoredTokens } from '@/lib/accounts'
 
-const FACEBOOK_BASE = 'https://graph.facebook.com/v18.0'
-const INSTAGRAM_BASE = 'https://graph.instagram.com/v18.0'
+const FACEBOOK_BASE = 'https://graph.facebook.com/v21.0'
+const INSTAGRAM_BASE = 'https://graph.instagram.com/v21.0'
 
 export const dynamic = 'force-dynamic'
 

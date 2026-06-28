@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
+import { getBaseUrlFromRequest } from '@/lib/oauth'
 
 const DEFAULT_APP_ID = '1564935734963627'
-const REDIRECT_URI = 'https://triggerdm.vercel.app/auth/meta/callback'
 const SCOPES = [
   'pages_show_list',
   'pages_read_engagement',
@@ -19,9 +19,10 @@ export function GET(req) {
   const target = VALID_ACCOUNTS.has(requested) ? requested : 'BUSINESS_PAGE_TOKEN'
 
   const appId = process.env.META_APP_ID || process.env.APP_ID || DEFAULT_APP_ID
-  const url = new URL('https://www.facebook.com/dialog/oauth')
+  const redirectUri = `${getBaseUrlFromRequest(req)}/auth/meta/callback`
+  const url = new URL('https://www.facebook.com/v21.0/dialog/oauth')
   url.searchParams.set('client_id', appId)
-  url.searchParams.set('redirect_uri', REDIRECT_URI)
+  url.searchParams.set('redirect_uri', redirectUri)
   url.searchParams.set('response_type', 'code')
   url.searchParams.set('scope', SCOPES.join(','))
   url.searchParams.set('state', target)

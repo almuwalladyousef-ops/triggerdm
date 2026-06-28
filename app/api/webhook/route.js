@@ -11,7 +11,7 @@ import {
 import { getAccountByIgIdWithStoredToken, getAccountsWithStoredTokens, resolveAccountForWebhookId } from '@/lib/accounts'
 import axios from 'axios'
 
-const BASE = 'https://graph.facebook.com/v18.0'
+const BASE = 'https://graph.facebook.com/v21.0'
 const PAGE_WEBHOOK_FIELDS = 'feed,messages,message_reactions,messaging_handovers,message_edits'
 const DEFAULT_COMMENT_REPLY = 'Sent you a DM.'
 

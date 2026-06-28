@@ -1,8 +1,8 @@
 import { logWebhookEvent, saveStoredToken } from '@/lib/driveDB'
+import { getBaseUrlFromHeaders } from '@/lib/oauth'
 
-const GRAPH_VERSION = 'v18.0'
+const GRAPH_VERSION = 'v21.0'
 const DEFAULT_APP_ID = '1564935734963627'
-const REDIRECT_URI = 'https://triggerdm.vercel.app/auth/meta/callback'
 
 // Which account this OAuth run is for. Passed through as `state` by /auth/meta/start.
 const ACCOUNTS = {
@@ -41,10 +41,11 @@ export default async function MetaCallback({ searchParams }) {
     if (!appSecret) throw new Error('Missing META_APP_SECRET/BUSINESS_APP_SECRET in Vercel')
     if (!TARGET_IG_ID) throw new Error(`Missing ${ACCOUNTS[tokenKey].igEnvVar} in Vercel`)
 
+    const redirectUri = `${await getBaseUrlFromHeaders()}/auth/meta/callback`
     const shortLived = await graph('oauth/access_token', {
       client_id: appId,
       client_secret: appSecret,
-      redirect_uri: REDIRECT_URI,
+      redirect_uri: redirectUri,
       code: searchParams.code,
     })
 
