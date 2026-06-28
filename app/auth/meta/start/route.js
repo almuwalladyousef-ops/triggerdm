@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getBaseUrlFromRequest } from '@/lib/oauth'
 
-const DEFAULT_APP_ID = '1564935734963627'
 const SCOPES = [
   'pages_show_list',
   'pages_read_engagement',
@@ -18,7 +17,11 @@ export function GET(req) {
   const requested = new URL(req.url).searchParams.get('account')
   const target = VALID_ACCOUNTS.has(requested) ? requested : 'BUSINESS_PAGE_TOKEN'
 
-  const appId = process.env.META_APP_ID || process.env.APP_ID || DEFAULT_APP_ID
+  const appId = process.env.META_APP_ID || process.env.APP_ID
+  if (!appId) {
+    return new NextResponse('Missing META_APP_ID in Vercel environment variables.', { status: 500 })
+  }
+
   const redirectUri = `${getBaseUrlFromRequest(req)}/auth/meta/callback`
   const url = new URL('https://www.facebook.com/v21.0/dialog/oauth')
   url.searchParams.set('client_id', appId)

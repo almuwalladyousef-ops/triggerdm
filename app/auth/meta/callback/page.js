@@ -2,7 +2,6 @@ import { logWebhookEvent, saveStoredToken } from '@/lib/driveDB'
 import { getBaseUrlFromHeaders } from '@/lib/oauth'
 
 const GRAPH_VERSION = 'v21.0'
-const DEFAULT_APP_ID = '1564935734963627'
 
 // Which account this OAuth run is for. Passed through as `state` by /auth/meta/start.
 const ACCOUNTS = {
@@ -29,7 +28,7 @@ async function graph(path, params) {
 }
 
 export default async function MetaCallback({ searchParams }) {
-  const appId = process.env.META_APP_ID || process.env.APP_ID || DEFAULT_APP_ID
+  const appId = process.env.META_APP_ID || process.env.APP_ID
   const appSecret = process.env.META_APP_SECRET || process.env.APP_SECRET || process.env.BUSINESS_APP_SECRET
   const { tokenKey, label, igId: TARGET_IG_ID } = resolveTarget(searchParams?.state)
 
@@ -38,6 +37,7 @@ export default async function MetaCallback({ searchParams }) {
       throw new Error(`${searchParams.error}: ${searchParams.error_description || ''}`)
     }
     if (!searchParams?.code) throw new Error('Missing OAuth code. Start from /auth/meta/start, not this callback URL directly.')
+    if (!appId) throw new Error('Missing META_APP_ID in Vercel')
     if (!appSecret) throw new Error('Missing META_APP_SECRET/BUSINESS_APP_SECRET in Vercel')
     if (!TARGET_IG_ID) throw new Error(`Missing ${ACCOUNTS[tokenKey].igEnvVar} in Vercel`)
 

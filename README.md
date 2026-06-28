@@ -17,6 +17,8 @@ Instagram comment-to-DM automation. Someone comments a keyword on your reel → 
 | `PAGE_ACCESS_TOKEN` | Meta developer dashboard → Access Tokens |
 | `PAGE_ID` | Your Instagram Page ID (numeric) |
 | `APP_URL` | Your canonical deployed URL, e.g. `https://triggerdm.vercel.app` |
+| `META_APP_ID` | Meta App → Settings → Basic → App ID |
+| `META_APP_SECRET` | Meta App → Settings → Basic → App Secret |
 | `APP_SECRET` | Meta App → Settings → Basic → App Secret |
 | `VERIFY_TOKEN` | Make up any string, paste same value in Meta webhook setup |
 | `GOOGLE_DRIVE_FILE_ID` | From Drive file URL: `drive.google.com/file/d/FILE_ID/view` |
