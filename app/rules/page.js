@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import RuleCard, { RuleCardSkeleton } from '@/components/RuleCard'
+import WorkspaceSwitcher, { getStoredWorkspaceId, resolveActiveWorkspace, storeWorkspaceId } from '@/components/WorkspaceSwitcher'
 
 const SORT_OPTIONS = [
   { value: 'updated', label: 'Last updated' },
@@ -11,10 +12,10 @@ const SORT_OPTIONS = [
 ]
 
 export default function RulesPage() {
-  const [accounts, setAccounts] = useState([])
+  const [workspaces, setWorkspaces] = useState([])
   const [rules, setRules] = useState([])
   const [perRuleStats, setPerRuleStats] = useState({})
-  const [activeTab, setActiveTab] = useState('all')
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(new Set())
   const [bulkAction, setBulkAction] = useState(null) // 'delete' | 'activate' | 'pause'
@@ -24,11 +25,14 @@ export default function RulesPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/accounts').then(r => r.json()),
+      fetch('/api/workspaces').then(r => r.json()),
       fetch('/api/rules').then(r => r.json()),
       fetch('/api/stats?perRule=1').then(r => r.json()),
-    ]).then(([accs, rls, stats]) => {
-      setAccounts(accs)
+    ]).then(([wss, rls, stats]) => {
+      const active = resolveActiveWorkspace(wss, getStoredWorkspaceId())
+      setWorkspaces(wss)
+      setActiveWorkspaceId(active?.id || null)
+      if (active) storeWorkspaceId(active.id)
       setRules(rls)
       setPerRuleStats(stats.perRule || {})
       setLoading(false)
@@ -36,7 +40,10 @@ export default function RulesPage() {
   }, [])
 
   const filtered = useMemo(() => {
-    let list = activeTab === 'all' ? rules : rules.filter(r => r.igId === activeTab)
+    const activeWorkspace = workspaces.find(w => w.id === activeWorkspaceId)
+    let list = activeWorkspace
+      ? rules.filter(r => r.workspaceId === activeWorkspace.id || (!r.workspaceId && r.igId === activeWorkspace.igId))
+      : rules
 
     if (statusFilter === 'active') list = list.filter(r => r.active)
     if (statusFilter === 'paused') list = list.filter(r => !r.active)
@@ -55,7 +62,7 @@ export default function RulesPage() {
       if (sort === 'created') return new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
       return new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0)
     })
-  }, [rules, activeTab, statusFilter, search, sort, perRuleStats])
+  }, [rules, workspaces, activeWorkspaceId, statusFilter, search, sort, perRuleStats])
 
   function toggleSelect(id) {
     setSelected(prev => {
@@ -119,23 +126,11 @@ export default function RulesPage() {
         <Link href="/rules/new" className="btn-primary">+ New Rule</Link>
       </div>
 
-      <div className="account-tabs">
-        <button
-          className={`account-tab ${activeTab === 'all' ? 'selected' : ''}`}
-          onClick={() => setActiveTab('all')}
-        >
-          All Accounts
-        </button>
-        {accounts.map(a => (
-          <button
-            key={a.igId}
-            className={`account-tab ${activeTab === a.igId ? 'selected' : ''}`}
-            onClick={() => setActiveTab(a.igId)}
-          >
-            {a.name}
-          </button>
-        ))}
-      </div>
+      <WorkspaceSwitcher
+        workspaces={workspaces}
+        activeWorkspaceId={activeWorkspaceId}
+        onChange={setActiveWorkspaceId}
+      />
 
       {/* Search + filter + sort bar */}
       <div className="rules-toolbar">
@@ -230,7 +225,7 @@ export default function RulesPage() {
               <RuleCard
                 key={rule.id}
                 rule={rule}
-                account={accounts.find(a => a.igId === rule.igId)}
+                account={workspaces.find(w => w.id === rule.workspaceId) || workspaces.find(w => w.igId === rule.igId)}
                 ruleStats={perRuleStats[rule.id]}
                 isSelected={selected.has(rule.id)}
                 onToggleSelect={toggleSelect}
