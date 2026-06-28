@@ -310,11 +310,6 @@ export default function RuleEditor({ initial }) {
         <button type="button" onClick={() => jumpToSection('rule-controls', 'controls')}>Controls</button>
       </div>
 
-      <div className="workspace-context">
-        <span>Workspace</span>
-        <strong>{selectedWorkspace?.name || 'No workspace selected'}</strong>
-      </div>
-
       <Section id="rule-comments" title="1. Comment Triggers" mandatory open={!!sectionOpen.triggers} onToggle={() => toggleSection('triggers')}>
         <p className="hint">When to send the DM based on comment content.</p>
         <label className="toggle" style={{ marginBottom: '16px' }}>

@@ -1,4 +1,5 @@
 'use client'
+import { useEffect, useRef, useState } from 'react'
 
 export const ACTIVE_WORKSPACE_KEY = 'triggerdm.activeWorkspaceId'
 export const WORKSPACES_CHANGED_EVENT = 'workspaceschange'
@@ -25,29 +26,175 @@ export function resolveActiveWorkspace(workspaces, storedId) {
 }
 
 export default function WorkspaceSwitcher({ workspaces, activeWorkspaceId, onChange, variant = 'inline' }) {
+  const [open, setOpen] = useState(false)
+  const [editingId, setEditingId] = useState(null)
+  const [editingName, setEditingName] = useState('')
+  const [busy, setBusy] = useState(false)
+  const menuRef = useRef(null)
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (!menuRef.current?.contains(event.target)) setOpen(false)
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   function select(id) {
     storeWorkspaceId(id)
     onChange?.(id)
+    setOpen(false)
+  }
+
+  function startEdit(workspace) {
+    setEditingId(workspace.id)
+    setEditingName(workspace.name)
+  }
+
+  async function saveEdit(id) {
+    const name = editingName.trim()
+    setEditingId(null)
+    setEditingName('')
+    if (!name) return
+
+    await fetch('/api/workspaces', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, name }),
+    })
+    notifyWorkspacesChanged()
+  }
+
+  async function deleteWorkspace(workspace) {
+    if (!confirm(`Delete workspace "${workspace.name}"? Rules are not deleted.`)) return
+
+    await fetch('/api/workspaces', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: workspace.id }),
+    })
+    notifyWorkspacesChanged()
+  }
+
+  async function createWorkspace() {
+    if (busy) return
+    setBusy(true)
+    const activeWorkspace = resolveActiveWorkspace(workspaces, activeWorkspaceId)
+    const nextNumber = workspaces.length + 1
+    const res = await fetch('/api/workspaces', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: `Workspace ${nextNumber}`,
+        igId: activeWorkspace?.igId || workspaces[0]?.igId || null,
+      }),
+    })
+    if (res.ok) {
+      const workspace = await res.json()
+      storeWorkspaceId(workspace.id)
+      onChange?.(workspace.id)
+      notifyWorkspacesChanged()
+    }
+    setBusy(false)
   }
 
   if (variant === 'sidebar') {
     const activeWorkspace = resolveActiveWorkspace(workspaces, activeWorkspaceId)
 
     return (
-      <div className="sidebar-workspace">
-        <span className="sidebar-workspace__label">Workspace</span>
-        <select
-          className="sidebar-workspace__select"
-          value={activeWorkspace?.id || ''}
-          onChange={e => select(e.target.value)}
-          aria-label="Workspace"
+      <div className="sidebar-workspace" ref={menuRef}>
+        <button
+          type="button"
+          className="sidebar-workspace__trigger"
+          onClick={() => setOpen(prev => !prev)}
+          aria-expanded={open}
         >
-          {workspaces.map(workspace => (
-            <option key={workspace.id} value={workspace.id}>
-              {workspace.name}
-            </option>
-          ))}
-        </select>
+          <span className="sidebar-workspace__icon">
+            {activeWorkspace?.name?.[0]?.toUpperCase() || 'W'}
+          </span>
+          <span className="sidebar-workspace__copy">
+            <span className="sidebar-workspace__label">Workspace</span>
+            <strong>{activeWorkspace?.name || 'No workspace'}</strong>
+          </span>
+          <span className={`sidebar-workspace__chevron ${open ? 'open' : ''}`}>⌃</span>
+        </button>
+
+        {open && (
+          <div className="sidebar-workspace-menu">
+            {workspaces.map(workspace => {
+              const selected = activeWorkspace?.id === workspace.id
+              const editing = editingId === workspace.id
+
+              return (
+                <div key={workspace.id} className={`workspace-menu-row ${selected ? 'selected' : ''}`}>
+                  <button
+                    type="button"
+                    className="workspace-menu-select"
+                    onClick={() => select(workspace.id)}
+                    disabled={editing}
+                    aria-label={`Switch to ${workspace.name}`}
+                  >
+                    <span className="workspace-menu-check">{selected ? '✓' : ''}</span>
+                  </button>
+                  {editing ? (
+                    <input
+                      className="workspace-menu-input"
+                      value={editingName}
+                      autoFocus
+                      onChange={e => setEditingName(e.target.value)}
+                      onBlur={() => saveEdit(workspace.id)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') saveEdit(workspace.id)
+                        if (e.key === 'Escape') {
+                          setEditingId(null)
+                          setEditingName('')
+                        }
+                      }}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className="workspace-menu-name"
+                      onClick={() => select(workspace.id)}
+                    >
+                      {workspace.name}
+                    </button>
+                  )}
+                  {!editing && (
+                    <>
+                      <button
+                        type="button"
+                        className="workspace-menu-icon"
+                        onClick={() => startEdit(workspace)}
+                        aria-label={`Rename ${workspace.name}`}
+                      >
+                        ✎
+                      </button>
+                      <button
+                        type="button"
+                        className="workspace-menu-icon"
+                        onClick={() => deleteWorkspace(workspace)}
+                        aria-label={`Delete ${workspace.name}`}
+                      >
+                        ⌫
+                      </button>
+                    </>
+                  )}
+                </div>
+              )
+            })}
+            <button
+              type="button"
+              className="workspace-menu-new"
+              onClick={createWorkspace}
+              disabled={busy}
+            >
+              <span>+</span>
+              {busy ? 'Adding...' : 'New workspace'}
+            </button>
+          </div>
+        )}
       </div>
     )
   }

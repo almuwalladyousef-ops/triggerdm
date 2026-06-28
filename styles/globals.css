@@ -55,10 +55,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .sidebar nav a.active { background: rgba(255,255,255,0.10); color: var(--sidebar-active); }
 
 .sidebar-workspace {
+  position: relative;
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 10px;
   background: rgba(255,255,255,0.035);
-  padding: 10px 12px;
+  padding: 8px;
 }
 .sidebar-workspace__label {
   display: block;
@@ -67,35 +68,133 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  margin-bottom: 6px;
+  margin-bottom: 2px;
 }
-.sidebar-workspace__select {
+.sidebar-workspace__trigger {
   width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   border: 0;
   outline: 0;
   background: transparent;
+  padding: 4px;
+  text-align: left;
+  cursor: pointer;
+}
+.sidebar-workspace__icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #fde68a, #c4b5fd);
+  color: #312e81;
+  font-size: 13px;
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+.sidebar-workspace__copy {
+  min-width: 0;
+  flex: 1;
+}
+.sidebar-workspace__copy strong {
+  display: block;
   color: #f8fafc;
   font-size: 14px;
   font-weight: 600;
-  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.sidebar-workspace__select option { color: #111318; }
+.sidebar-workspace__chevron {
+  color: var(--sidebar-text);
+  font-size: 14px;
+  transition: transform 0.15s;
+}
+.sidebar-workspace__chevron.open { transform: rotate(180deg); }
 .sidebar-workspace__placeholder {
   display: block;
   color: var(--sidebar-text);
   font-size: 14px;
 }
-.sidebar-manage-workspaces {
-  color: var(--sidebar-text);
-  font-size: 12px;
-  text-decoration: none;
-  padding: 9px 12px;
+.sidebar-workspace-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 20;
+  background: #15191f;
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 10px;
+  padding: 8px;
+  box-shadow: 0 18px 45px rgba(0,0,0,0.35);
+}
+.workspace-menu-row {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 26px 26px;
+  gap: 4px;
+  align-items: center;
   border-radius: 8px;
+  padding: 5px 4px;
 }
-.sidebar-manage-workspaces:hover {
-  background: rgba(255,255,255,0.08);
+.workspace-menu-row.selected { background: rgba(255,255,255,0.08); }
+.workspace-menu-select,
+.workspace-menu-name,
+.workspace-menu-icon,
+.workspace-menu-new {
+  border: 0;
+  background: transparent;
   color: var(--sidebar-active);
+  cursor: pointer;
 }
+.workspace-menu-select {
+  width: 20px;
+  height: 24px;
+  color: var(--accent);
+}
+.workspace-menu-check { color: #f59e0b; font-size: 13px; }
+.workspace-menu-name {
+  min-width: 0;
+  text-align: left;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 2px;
+}
+.workspace-menu-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  color: #7b8494;
+  font-size: 14px;
+}
+.workspace-menu-icon:hover { background: rgba(255,255,255,0.08); color: #f8fafc; }
+.workspace-menu-input {
+  grid-column: span 3;
+  min-width: 0;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 7px;
+  background: rgba(0,0,0,0.18);
+  color: #fff;
+  padding: 6px 8px;
+  font-size: 14px;
+}
+.workspace-menu-new {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px 10px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  color: var(--sidebar-text);
+  font-size: 14px;
+}
+.workspace-menu-new span { color: #f59e0b; font-size: 18px; line-height: 1; }
+.workspace-menu-new:hover { color: #fff; }
 
 .content { margin-left: 220px; flex: 1; padding: 40px; max-width: 900px; }
 .mobile-workspace-bar { display: none; }
@@ -745,44 +844,6 @@ input, textarea { font-family: inherit; }
 }
 .workspace-tab:hover { border-color: var(--accent); color: var(--accent); }
 .workspace-tab.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
-.workspace-manage-link { font-size: 13px; color: var(--text-muted); }
-.workspace-context {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 12px 16px;
-  font-size: 14px;
-}
-.workspace-context span { color: var(--text-muted); }
-.workspace-manager {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin: 16px 0 28px;
-}
-.workspace-row {
-  display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(180px, 260px) auto;
-  gap: 10px;
-  align-items: center;
-}
-.workspace-row input,
-.workspace-row select {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 12px;
-  background: var(--card-bg);
-  color: var(--text);
-  font-size: 14px;
-}
-.workspace-row--new {
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-}
 
 /* Rule account badge */
 .rule-account {
@@ -819,7 +880,20 @@ input, textarea { font-family: inherit; }
     background: var(--card-bg);
     border-color: var(--border);
   }
-  .mobile-workspace-bar .sidebar-workspace__select { color: var(--text); }
+  .mobile-workspace-bar .sidebar-workspace__copy strong { color: var(--text); }
+  .mobile-workspace-bar .sidebar-workspace-menu {
+    background: var(--card-bg);
+    border-color: var(--border);
+  }
+  .mobile-workspace-bar .workspace-menu-name,
+  .mobile-workspace-bar .workspace-menu-icon,
+  .mobile-workspace-bar .workspace-menu-new { color: var(--text-muted); }
+  .mobile-workspace-bar .workspace-menu-row.selected { background: #f3f4f6; }
+  .mobile-workspace-bar .workspace-menu-input {
+    background: #fff;
+    border-color: var(--border);
+    color: var(--text);
+  }
 
   .two-step-fields { grid-template-columns: 1fr; }
 
@@ -912,5 +986,4 @@ input, textarea { font-family: inherit; }
 @media (max-width: 640px) {
   .account-status-card { flex-direction: column; align-items: stretch; }
   .account-status-card .btn-primary { text-align: center; }
-  .workspace-row { grid-template-columns: 1fr; }
 }

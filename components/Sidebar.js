@@ -43,9 +43,6 @@ export default function Sidebar() {
           ))}
         </nav>
       </div>
-      <Link href="/settings#workspaces" className="sidebar-manage-workspaces">
-        Manage workspaces
-      </Link>
     </aside>
   )
 }
