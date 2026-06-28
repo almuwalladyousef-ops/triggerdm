@@ -1,5 +1,6 @@
 import { logWebhookEvent, saveStoredToken } from '@/lib/driveDB'
 import { getBaseUrlFromHeaders } from '@/lib/oauth'
+import { getWorkspaces, updateWorkspace } from '@/lib/workspaces'
 
 const GRAPH_VERSION = 'v21.0'
 
@@ -9,9 +10,24 @@ const ACCOUNTS = {
   PERSONAL_PAGE_TOKEN: { label: 'Personal', igEnvVar: 'PERSONAL_IG_ID' },
 }
 
-function resolveTarget(state) {
+async function resolveTarget(state) {
+  if (state?.startsWith('ws:') || state?.startsWith('workspace:')) {
+    const workspaceId = state.startsWith('ws:') ? state.slice(3) : state.slice('workspace:'.length)
+    const workspaces = await getWorkspaces()
+    const workspace = workspaces.find(w => w.id === workspaceId)
+    if (!workspace) throw new Error('Workspace not found. Create it again and restart Meta sign-in.')
+
+    return {
+      tokenKey: workspace.tokenKey || `WORKSPACE_TOKEN:${workspace.id}`,
+      label: workspace.name,
+      igId: workspace.igId || null,
+      workspaceId: workspace.id,
+      allowAnyAccount: true,
+    }
+  }
+
   const tokenKey = ACCOUNTS[state] ? state : 'BUSINESS_PAGE_TOKEN'
-  return { tokenKey, label: ACCOUNTS[tokenKey].label, igId: process.env[ACCOUNTS[tokenKey].igEnvVar] }
+  return { tokenKey, label: ACCOUNTS[tokenKey].label, igId: process.env[ACCOUNTS[tokenKey].igEnvVar], workspaceId: null, allowAnyAccount: false }
 }
 
 async function graph(path, params) {
@@ -30,16 +46,19 @@ async function graph(path, params) {
 export default async function MetaCallback({ searchParams }) {
   const appId = process.env.META_APP_ID
   const appSecret = process.env.META_APP_SECRET
-  const { tokenKey, label, igId: TARGET_IG_ID } = resolveTarget(searchParams?.state)
+  let target = null
 
   try {
+    target = await resolveTarget(searchParams?.state)
+    const { tokenKey, label, igId: TARGET_IG_ID, workspaceId, allowAnyAccount } = target
+
     if (searchParams?.error) {
       throw new Error(`${searchParams.error}: ${searchParams.error_description || ''}`)
     }
     if (!searchParams?.code) throw new Error('Missing OAuth code. Start from /auth/meta/start, not this callback URL directly.')
     if (!appId) throw new Error('Missing META_APP_ID in Vercel')
     if (!appSecret) throw new Error('Missing META_APP_SECRET in Vercel')
-    if (!TARGET_IG_ID) throw new Error(`Missing ${ACCOUNTS[tokenKey].igEnvVar} in Vercel`)
+    if (!allowAnyAccount && !TARGET_IG_ID) throw new Error(`Missing ${ACCOUNTS[tokenKey].igEnvVar} in Vercel`)
 
     const redirectUri = `${await getBaseUrlFromHeaders()}/auth/meta/callback`
     const shortLived = await graph('oauth/access_token', {
@@ -61,7 +80,10 @@ export default async function MetaCallback({ searchParams }) {
       access_token: longLived.access_token,
     })
 
-    const page = (pages.data || []).find(p => p.instagram_business_account?.id === TARGET_IG_ID)
+    const eligiblePages = (pages.data || []).filter(p => p.access_token && p.instagram_business_account?.id)
+    const page = allowAnyAccount
+      ? eligiblePages[0]
+      : eligiblePages.find(p => p.instagram_business_account?.id === TARGET_IG_ID)
     if (!page?.access_token) {
       const available = (pages.data || []).map(p => ({
         pageId: p.id,
@@ -69,16 +91,20 @@ export default async function MetaCallback({ searchParams }) {
         igId: p.instagram_business_account?.id || null,
         igUsername: p.instagram_business_account?.username || null,
       }))
-      await logWebhookEvent({ type: 'meta_oauth_no_match', tokenKey, targetIgId: TARGET_IG_ID, available }).catch(() => {})
+      await logWebhookEvent({ type: 'meta_oauth_no_match', tokenKey, workspaceId, targetIgId: TARGET_IG_ID, available }).catch(() => {})
       return (
         <main style={{ fontFamily: 'sans-serif', padding: 32, lineHeight: 1.5 }}>
           <h1>No matching page found</h1>
-          <p>Looking for {label} Instagram ID <strong>{TARGET_IG_ID}</strong>, but the pages you granted were:</p>
+          <p>
+            {allowAnyAccount
+              ? `No Instagram Business account was available for ${label}.`
+              : <>Looking for {label} Instagram ID <strong>{TARGET_IG_ID}</strong>, but the pages you granted were:</>}
+          </p>
           <pre style={{ background: '#f4f4f4', padding: 16, borderRadius: 8, overflow: 'auto' }}>
             {JSON.stringify(available, null, 2)}
           </pre>
-          <p>If the correct Instagram account appears above with a different ID, update BUSINESS_IG_ID to that value. If no Instagram account is linked, the page needs an Instagram Business account connected.</p>
-          <p><a href="/auth/meta/start?account=BUSINESS_PAGE_TOKEN">Restart Meta sign-in</a></p>
+          <p>The page needs an Instagram Business account connected, and you need to grant that page during Meta sign-in.</p>
+          <p><a href={workspaceId ? `/auth/meta/start?workspace=${workspaceId}` : `/auth/meta/start?account=${tokenKey}`}>Restart Meta sign-in</a></p>
         </main>
       )
     }
@@ -90,9 +116,20 @@ export default async function MetaCallback({ searchParams }) {
       igUsername: page.instagram_business_account?.username,
       source: 'meta_oauth_callback',
     })
+    if (workspaceId) {
+      await updateWorkspace(workspaceId, {
+        igId: page.instagram_business_account?.id,
+        pageId: page.id,
+        igUsername: page.instagram_business_account?.username,
+        accountName: page.instagram_business_account?.username
+          ? `@${page.instagram_business_account.username}`
+          : page.name,
+      })
+    }
     await logWebhookEvent({
       type: 'meta_oauth_success',
       tokenKey,
+      workspaceId,
       pageId: page.id,
       pageName: page.name,
       igId: page.instagram_business_account?.id,
@@ -112,13 +149,14 @@ export default async function MetaCallback({ searchParams }) {
       error: err.message,
       hasCode: Boolean(searchParams?.code),
       appId,
-      targetIgId: TARGET_IG_ID,
+      targetIgId: target?.igId,
+      workspaceId: target?.workspaceId,
     }).catch(() => {})
     return (
       <main style={{ fontFamily: 'sans-serif', padding: 32, lineHeight: 1.5 }}>
         <h1>Token setup failed</h1>
         <p>{err.message}</p>
-        <p><a href="/auth/meta/start">Restart Meta sign-in</a></p>
+        <p><a href={target?.workspaceId ? `/auth/meta/start?workspace=${target.workspaceId}` : '/auth/meta/start'}>Restart Meta sign-in</a></p>
       </main>
     )
   }

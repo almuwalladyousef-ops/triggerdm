@@ -50,7 +50,7 @@ export default function SettingsPage() {
               </div>
               <a
                 className="btn-primary"
-                href={`/auth/instagram/start?workspace=${activeWorkspace?.id || acc.workspaceId}`}
+                href={`/auth/meta/start?workspace=${activeWorkspace?.id || acc.workspaceId}`}
               >
                 {acc.valid ? 'Reconnect' : 'Connect'}
               </a>
