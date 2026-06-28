@@ -1,4 +1,4 @@
-import { logWebhookEvent, saveStoredToken } from '@/lib/driveDB'
+import { logWebhookEvent, savePendingMetaSelection, saveStoredToken } from '@/lib/driveDB'
 import { getBaseUrlFromHeaders } from '@/lib/oauth'
 import { getWorkspaces, updateWorkspace } from '@/lib/workspaces'
 
@@ -81,6 +81,49 @@ export default async function MetaCallback({ searchParams }) {
     })
 
     const eligiblePages = (pages.data || []).filter(p => p.access_token && p.instagram_business_account?.id)
+    if (allowAnyAccount && eligiblePages.length > 1) {
+      const pendingId = await savePendingMetaSelection({
+        tokenKey,
+        workspaceId,
+        pages: eligiblePages,
+      })
+
+      return (
+        <main style={{ fontFamily: 'sans-serif', padding: 32, lineHeight: 1.5, maxWidth: 760 }}>
+          <h1>Choose an Instagram account</h1>
+          <p>Meta returned multiple Instagram Business accounts. Pick the one to connect to <strong>{label}</strong>.</p>
+          <div style={{ display: 'grid', gap: 12, marginTop: 24 }}>
+            {eligiblePages.map(candidate => (
+              <form key={candidate.id} method="POST" action="/api/workspaces/connect-meta">
+                <input type="hidden" name="pendingId" value={pendingId} />
+                <input type="hidden" name="pageId" value={candidate.id} />
+                <button
+                  type="submit"
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    border: '1px solid #ddd',
+                    borderRadius: 10,
+                    background: '#fff',
+                    padding: 16,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <strong>@{candidate.instagram_business_account.username || candidate.instagram_business_account.id}</strong>
+                  <span style={{ display: 'block', color: '#555', marginTop: 4 }}>
+                    Page: {candidate.name}
+                  </span>
+                </button>
+              </form>
+            ))}
+          </div>
+          <p style={{ marginTop: 24 }}>
+            <a href={`/auth/meta/start?workspace=${workspaceId}`}>Restart Meta sign-in</a>
+          </p>
+        </main>
+      )
+    }
+
     const page = allowAnyAccount
       ? eligiblePages[0]
       : eligiblePages.find(p => p.instagram_business_account?.id === TARGET_IG_ID)

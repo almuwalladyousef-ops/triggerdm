@@ -28,7 +28,7 @@ export default function SettingsPage() {
         <h2>Connected account</h2>
         <p className="hint">
           This connection belongs only to the selected workspace.
-          {activeWorkspace ? ` You are setting up ${activeWorkspace.name}.` : ''}
+          {activeWorkspace ? ` You are setting up ${activeWorkspace.name}. Meta will only show Instagram Business accounts you are allowed to manage and grant during sign-in.` : ''}
         </p>
 
         {error && <p className="empty-state__sub" style={{ color: 'var(--danger)' }}>{error}</p>}
@@ -41,6 +41,9 @@ export default function SettingsPage() {
                 <span className="account-status-name">
                   {acc.connected ? acc.name : `${activeWorkspace?.name || 'Workspace'} is not connected`}
                 </span>
+                {acc.igId && (
+                  <span className="account-status-error">Instagram ID: {acc.igId}</span>
+                )}
                 <span className={`badge ${acc.valid ? 'badge-ok' : 'badge-bad'}`}>
                   {acc.valid ? 'Connected' : 'Not connected'}
                 </span>
