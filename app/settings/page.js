@@ -43,7 +43,7 @@ export default function SettingsPage() {
               </div>
               <a
                 className="btn-primary"
-                href={`${acc.authType === 'instagram' ? '/auth/instagram/start' : '/auth/meta/start'}?account=${acc.key}`}
+                href={`/auth/meta/start?account=${acc.key}`}
               >
                 {acc.valid ? 'Reconnect' : 'Connect'}
               </a>

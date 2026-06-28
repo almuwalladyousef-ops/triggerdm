@@ -16,6 +16,7 @@ Instagram comment-to-DM automation. Someone comments a keyword on your reel → 
 |---|---|
 | `PAGE_ACCESS_TOKEN` | Meta developer dashboard → Access Tokens |
 | `PAGE_ID` | Your Instagram Page ID (numeric) |
+| `APP_URL` | Your canonical deployed URL, e.g. `https://triggerdm.vercel.app` |
 | `APP_SECRET` | Meta App → Settings → Basic → App Secret |
 | `VERIFY_TOKEN` | Make up any string, paste same value in Meta webhook setup |
 | `GOOGLE_DRIVE_FILE_ID` | From Drive file URL: `drive.google.com/file/d/FILE_ID/view` |
@@ -43,6 +44,21 @@ Initialize the file with this content:
 2. Subscribe to **Instagram** → field: `comments`
 3. Callback URL: `https://your-app.vercel.app/api/webhook`
 4. Verify token: your `VERIFY_TOKEN` value
+
+## Meta OAuth Redirect Setup
+
+Set `APP_URL` in Vercel to your canonical production domain, for example:
+
+```text
+https://triggerdm.vercel.app
+```
+
+Then register the matching redirect URLs in the Meta app dashboard:
+
+- Instagram Login: `https://triggerdm.vercel.app/auth/instagram/callback`
+- Facebook Login: `https://triggerdm.vercel.app/auth/meta/callback`
+
+Use the same domain you set in `APP_URL`. Do not add a trailing slash.
 
 ## How to Use
 
