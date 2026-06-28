@@ -17,7 +17,7 @@ export function GET(req) {
   const requested = new URL(req.url).searchParams.get('account')
   const target = VALID_ACCOUNTS.has(requested) ? requested : 'BUSINESS_PAGE_TOKEN'
 
-  const appId = process.env.META_APP_ID || process.env.APP_ID
+  const appId = process.env.META_APP_ID
   if (!appId) {
     return new NextResponse('Missing META_APP_ID in Vercel environment variables.', { status: 500 })
   }
