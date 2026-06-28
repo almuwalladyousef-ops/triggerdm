@@ -193,7 +193,8 @@ export default function RuleEditor({ initial }) {
 
   async function save() {
     if (!rule.name) return setError('Give this rule a name.')
-    if (!rule.workspaceId || !rule.igId) return setError('Select a workspace before creating a rule.')
+    if (!rule.workspaceId) return setError('Select a workspace before creating a rule.')
+    if (!rule.igId) return setError('Connect an Instagram account to this workspace before creating rules.')
     if (!rule.anyComment && rule.keywords.length === 0 && !rule.dmKeywords?.length) {
       return setError('Add at least one keyword, enable "Any comment", or add DM keywords.')
     }
@@ -557,7 +558,9 @@ export default function RuleEditor({ initial }) {
 
       <Section id="rule-reels" title="7. Target Reels" mandatory alwaysOpen>
         <p className="hint">
-          {selectedWorkspace ? `Reels from ${selectedWorkspace.name}.` : 'Select a workspace first.'}
+          {selectedWorkspace?.igId
+            ? `Reels from ${selectedWorkspace.name}.`
+            : 'Connect an Instagram account to this workspace first.'}
         </p>
         <ReelPicker
           igId={rule.igId}

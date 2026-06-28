@@ -1,5 +1,6 @@
 import { logWebhookEvent, saveStoredToken } from '@/lib/driveDB'
 import { getBaseUrlFromHeaders } from '@/lib/oauth'
+import { getWorkspaces, updateWorkspace } from '@/lib/workspaces'
 
 const DEFAULT_INSTAGRAM_APP_ID = '2415208742325516'
 
@@ -8,9 +9,24 @@ const ACCOUNTS = {
   PERSONAL_PAGE_TOKEN: { label: 'Personal', igEnvVar: 'PERSONAL_IG_ID' },
 }
 
-function resolveTarget(state) {
+async function resolveTarget(state) {
+  if (state?.startsWith('workspace:')) {
+    const workspaceId = state.slice('workspace:'.length)
+    const workspaces = await getWorkspaces()
+    const workspace = workspaces.find(w => w.id === workspaceId)
+    if (!workspace) throw new Error('Workspace not found. Create it again and restart Instagram sign-in.')
+
+    return {
+      tokenKey: workspace.tokenKey || `WORKSPACE_TOKEN:${workspace.id}`,
+      label: workspace.name,
+      igId: workspace.igId || null,
+      workspaceId: workspace.id,
+      allowAnyAccount: true,
+    }
+  }
+
   const tokenKey = ACCOUNTS[state] ? state : 'BUSINESS_PAGE_TOKEN'
-  return { tokenKey, label: ACCOUNTS[tokenKey].label, igId: process.env[ACCOUNTS[tokenKey].igEnvVar] }
+  return { tokenKey, label: ACCOUNTS[tokenKey].label, igId: process.env[ACCOUNTS[tokenKey].igEnvVar], workspaceId: null, allowAnyAccount: false }
 }
 
 async function exchangeCodeForToken(code, appId, appSecret, redirectUri) {
@@ -64,7 +80,7 @@ async function fetchInstagramAccount(token) {
 export default async function InstagramCallback({ searchParams }) {
   const appId = process.env.INSTAGRAM_APP_ID || process.env.META_INSTAGRAM_APP_ID || DEFAULT_INSTAGRAM_APP_ID
   const appSecret = process.env.INSTAGRAM_APP_SECRET || process.env.META_INSTAGRAM_APP_SECRET || process.env.BUSINESS_APP_SECRET
-  const { tokenKey, label, igId: targetIgId } = resolveTarget(searchParams?.state)
+  const { tokenKey, label, igId: targetIgId, workspaceId, allowAnyAccount } = await resolveTarget(searchParams?.state)
 
   try {
     if (searchParams?.error) {
@@ -72,14 +88,14 @@ export default async function InstagramCallback({ searchParams }) {
     }
     if (!searchParams?.code) throw new Error('Missing OAuth code. Start from /auth/instagram/start, not this callback URL directly.')
     if (!appSecret) throw new Error('Missing INSTAGRAM_APP_SECRET/META_INSTAGRAM_APP_SECRET in Vercel')
-    if (!targetIgId) throw new Error(`Missing ${ACCOUNTS[tokenKey].igEnvVar} in Vercel`)
+    if (!allowAnyAccount && !targetIgId) throw new Error(`Missing ${ACCOUNTS[tokenKey].igEnvVar} in Vercel`)
 
     const redirectUri = `${await getBaseUrlFromHeaders()}/auth/instagram/callback`
     const shortLived = await exchangeCodeForToken(searchParams.code, appId, appSecret, redirectUri)
     const longLived = await exchangeForLongLivedToken(shortLived.access_token, appSecret)
     const account = await fetchInstagramAccount(longLived.access_token)
 
-    if (account.user_id !== targetIgId && account.id !== targetIgId) {
+    if (!allowAnyAccount && account.user_id !== targetIgId && account.id !== targetIgId) {
       await logWebhookEvent({ type: 'instagram_oauth_no_match', tokenKey, targetIgId, account }).catch(() => {})
       return (
         <main style={{ fontFamily: 'sans-serif', padding: 32, lineHeight: 1.5 }}>
@@ -102,9 +118,18 @@ export default async function InstagramCallback({ searchParams }) {
       source: 'instagram_oauth_callback',
       expiresIn: longLived.expires_in,
     })
+    if (workspaceId) {
+      await updateWorkspace(workspaceId, {
+        igId: account.user_id,
+        instagramLoginId: account.id,
+        igUsername: account.username,
+        accountName: `@${account.username}`,
+      })
+    }
     await logWebhookEvent({
       type: 'instagram_oauth_success',
       tokenKey,
+      workspaceId,
       instagramLoginId: account.id,
       igId: account.user_id,
       igUsername: account.username,
@@ -129,7 +154,7 @@ export default async function InstagramCallback({ searchParams }) {
       <main style={{ fontFamily: 'sans-serif', padding: 32, lineHeight: 1.5 }}>
         <h1>Instagram token setup failed</h1>
         <p>{err.message}</p>
-        <p><a href={`/auth/instagram/start?account=${tokenKey}`}>Restart Instagram sign-in</a></p>
+        <p><a href={workspaceId ? `/auth/instagram/start?workspace=${workspaceId}` : `/auth/instagram/start?account=${tokenKey}`}>Restart Instagram sign-in</a></p>
       </main>
     )
   }

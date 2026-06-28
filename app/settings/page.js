@@ -1,17 +1,22 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import useActiveWorkspace from '@/components/useActiveWorkspace'
 
 export default function SettingsPage() {
   const [accounts, setAccounts] = useState(null)
   const [error, setError] = useState(null)
+  const { activeWorkspace, loadingWorkspaces } = useActiveWorkspace()
 
   useEffect(() => {
-    fetch('/api/accounts/status')
+    if (!activeWorkspace?.id) return
+
+    setAccounts(null)
+    fetch(`/api/accounts/status?workspaceId=${activeWorkspace.id}`)
       .then(r => r.json())
       .then(setAccounts)
       .catch(() => setError('Could not load account status.'))
-  }, [])
+  }, [activeWorkspace?.id])
 
   return (
     <div className="page">
@@ -20,22 +25,24 @@ export default function SettingsPage() {
       </div>
 
       <section>
-        <h2>Connected accounts</h2>
+        <h2>Connected account</h2>
         <p className="hint">
-          Instagram automation runs through Meta Page tokens. These tokens expire — when one does,
-          its account stops sending. Reconnect to mint a fresh token.
+          This connection belongs only to the selected workspace.
+          {activeWorkspace ? ` You are setting up ${activeWorkspace.name}.` : ''}
         </p>
 
         {error && <p className="empty-state__sub" style={{ color: 'var(--danger)' }}>{error}</p>}
-        {!accounts && !error && <p className="loading">Checking accounts…</p>}
+        {(loadingWorkspaces || (!accounts && !error)) && <p className="loading">Checking account…</p>}
 
         <div className="account-status-list">
           {accounts?.map(acc => (
-            <div key={acc.igId} className="account-status-card">
+            <div key={acc.key} className="account-status-card">
               <div className="account-status-info">
-                <span className="account-status-name">{acc.name}</span>
+                <span className="account-status-name">
+                  {acc.connected ? acc.name : `${activeWorkspace?.name || 'Workspace'} is not connected`}
+                </span>
                 <span className={`badge ${acc.valid ? 'badge-ok' : 'badge-bad'}`}>
-                  {acc.valid ? 'Connected' : 'Token expired / invalid'}
+                  {acc.valid ? 'Connected' : 'Not connected'}
                 </span>
                 {!acc.valid && acc.error && (
                   <span className="account-status-error">{acc.error}</span>
@@ -43,7 +50,7 @@ export default function SettingsPage() {
               </div>
               <a
                 className="btn-primary"
-                href={`/auth/meta/start?account=${acc.key}`}
+                href={`/auth/instagram/start?workspace=${activeWorkspace?.id || acc.workspaceId}`}
               >
                 {acc.valid ? 'Reconnect' : 'Connect'}
               </a>

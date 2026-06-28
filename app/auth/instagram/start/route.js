@@ -13,8 +13,10 @@ const VALID_ACCOUNTS = new Set(['BUSINESS_PAGE_TOKEN', 'PERSONAL_PAGE_TOKEN'])
 export const dynamic = 'force-dynamic'
 
 export function GET(req) {
-  const requested = new URL(req.url).searchParams.get('account')
-  const target = VALID_ACCOUNTS.has(requested) ? requested : 'BUSINESS_PAGE_TOKEN'
+  const params = new URL(req.url).searchParams
+  const workspaceId = params.get('workspace')
+  const requested = params.get('account')
+  const target = workspaceId ? `workspace:${workspaceId}` : (VALID_ACCOUNTS.has(requested) ? requested : 'BUSINESS_PAGE_TOKEN')
   const appId = process.env.INSTAGRAM_APP_ID || process.env.META_INSTAGRAM_APP_ID || DEFAULT_INSTAGRAM_APP_ID
   const redirectUri = `${getBaseUrlFromRequest(req)}/auth/instagram/callback`
 

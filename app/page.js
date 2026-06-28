@@ -20,6 +20,11 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!activeWorkspace) return
+    if (!activeWorkspace.igId) {
+      setStats({ totalDMs: 0, activeRules: 0, totalRules: 0, daily7Day: {}, tokenStatus: null })
+      setPerRuleStats({})
+      return
+    }
     const url = `/api/stats?igId=${activeWorkspace.igId}&perRule=1`
     fetch(url).then(r => r.json()).then(st => {
       setStats(st)

@@ -80,14 +80,12 @@ export default function WorkspaceSwitcher({ workspaces, activeWorkspaceId, onCha
   async function createWorkspace() {
     if (busy) return
     setBusy(true)
-    const activeWorkspace = resolveActiveWorkspace(workspaces, activeWorkspaceId)
     const nextNumber = workspaces.length + 1
     const res = await fetch('/api/workspaces', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: `Workspace ${nextNumber}`,
-        igId: activeWorkspace?.igId || workspaces[0]?.igId || null,
       }),
     })
     if (res.ok) {
