@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import RuleCard, { RuleCardSkeleton } from '@/components/RuleCard'
-import WorkspaceSwitcher, { getStoredWorkspaceId, resolveActiveWorkspace, storeWorkspaceId } from '@/components/WorkspaceSwitcher'
+import useActiveWorkspace from '@/components/useActiveWorkspace'
 
 const SORT_OPTIONS = [
   { value: 'updated', label: 'Last updated' },
@@ -12,10 +12,9 @@ const SORT_OPTIONS = [
 ]
 
 export default function RulesPage() {
-  const [workspaces, setWorkspaces] = useState([])
+  const { workspaces, activeWorkspace, loadingWorkspaces } = useActiveWorkspace()
   const [rules, setRules] = useState([])
   const [perRuleStats, setPerRuleStats] = useState({})
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(new Set())
   const [bulkAction, setBulkAction] = useState(null) // 'delete' | 'activate' | 'pause'
@@ -25,25 +24,23 @@ export default function RulesPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/workspaces').then(r => r.json()),
       fetch('/api/rules').then(r => r.json()),
       fetch('/api/stats?perRule=1').then(r => r.json()),
-    ]).then(([wss, rls, stats]) => {
-      const active = resolveActiveWorkspace(wss, getStoredWorkspaceId())
-      setWorkspaces(wss)
-      setActiveWorkspaceId(active?.id || null)
-      if (active) storeWorkspaceId(active.id)
+    ]).then(([rls, stats]) => {
       setRules(rls)
       setPerRuleStats(stats.perRule || {})
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [])
 
+  useEffect(() => {
+    setSelected(new Set())
+  }, [activeWorkspace?.id])
+
   const filtered = useMemo(() => {
-    const activeWorkspace = workspaces.find(w => w.id === activeWorkspaceId)
     let list = activeWorkspace
       ? rules.filter(r => r.workspaceId === activeWorkspace.id || (!r.workspaceId && r.igId === activeWorkspace.igId))
-      : rules
+      : []
 
     if (statusFilter === 'active') list = list.filter(r => r.active)
     if (statusFilter === 'paused') list = list.filter(r => !r.active)
@@ -62,7 +59,7 @@ export default function RulesPage() {
       if (sort === 'created') return new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
       return new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0)
     })
-  }, [rules, workspaces, activeWorkspaceId, statusFilter, search, sort, perRuleStats])
+  }, [rules, activeWorkspace?.id, activeWorkspace?.igId, statusFilter, search, sort, perRuleStats])
 
   function toggleSelect(id) {
     setSelected(prev => {
@@ -126,12 +123,6 @@ export default function RulesPage() {
         <Link href="/rules/new" className="btn-primary">+ New Rule</Link>
       </div>
 
-      <WorkspaceSwitcher
-        workspaces={workspaces}
-        activeWorkspaceId={activeWorkspaceId}
-        onChange={setActiveWorkspaceId}
-      />
-
       {/* Search + filter + sort bar */}
       <div className="rules-toolbar">
         <input
@@ -161,7 +152,7 @@ export default function RulesPage() {
         </select>
       </div>
 
-      {loading ? (
+      {loading || loadingWorkspaces ? (
         <div className="rule-list">
           {[1, 2, 3].map(i => <RuleCardSkeleton key={i} />)}
         </div>

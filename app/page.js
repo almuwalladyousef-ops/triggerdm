@@ -2,47 +2,34 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import RuleCard from '@/components/RuleCard'
-import WorkspaceSwitcher, { getStoredWorkspaceId, resolveActiveWorkspace, storeWorkspaceId } from '@/components/WorkspaceSwitcher'
+import useActiveWorkspace from '@/components/useActiveWorkspace'
 
 export default function Dashboard() {
-  const [workspaces, setWorkspaces] = useState([])
+  const { workspaces, activeWorkspace, loadingWorkspaces } = useActiveWorkspace()
   const [rules, setRules] = useState([])
   const [stats, setStats] = useState({ totalDMs: 0, activeRules: 0, totalRules: 0, daily7Day: {}, tokenStatus: null })
   const [perRuleStats, setPerRuleStats] = useState({})
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/workspaces').then(r => r.json()),
-      fetch('/api/rules').then(r => r.json()),
-      fetch('/api/stats?perRule=1').then(r => r.json()),
-    ]).then(([wss, rls, st]) => {
-      const active = resolveActiveWorkspace(wss, getStoredWorkspaceId())
-      setWorkspaces(wss)
-      setActiveWorkspaceId(active?.id || null)
-      if (active) storeWorkspaceId(active.id)
+    fetch('/api/rules').then(r => r.json()).then(rls => {
       setRules(rls)
-      setStats(st)
-      setPerRuleStats(st.perRule || {})
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [])
 
   useEffect(() => {
-    const activeWorkspace = workspaces.find(w => w.id === activeWorkspaceId)
     if (!activeWorkspace) return
     const url = `/api/stats?igId=${activeWorkspace.igId}&perRule=1`
     fetch(url).then(r => r.json()).then(st => {
       setStats(st)
       setPerRuleStats(st.perRule || {})
     }).catch(() => {})
-  }, [workspaces, activeWorkspaceId])
+  }, [activeWorkspace?.id, activeWorkspace?.igId])
 
-  const activeWorkspace = workspaces.find(w => w.id === activeWorkspaceId)
   const activeRules = (activeWorkspace
     ? rules.filter(r => r.workspaceId === activeWorkspace.id || (!r.workspaceId && r.igId === activeWorkspace.igId))
-    : rules)
+    : [])
     .filter(r => r.active)
 
   const daily = stats.daily7Day || {}
@@ -66,12 +53,6 @@ export default function Dashboard() {
         <h1>Dashboard</h1>
         <Link href="/rules/new" className="btn-primary">+ New Rule</Link>
       </div>
-
-      <WorkspaceSwitcher
-        workspaces={workspaces}
-        activeWorkspaceId={activeWorkspaceId}
-        onChange={setActiveWorkspaceId}
-      />
 
       <div className="stat-cards">
         <div className="stat-card">
@@ -113,7 +94,7 @@ export default function Dashboard() {
       )}
 
       <h2>Active Rules</h2>
-      {loading ? (
+      {loading || loadingWorkspaces ? (
         <p className="loading">Loading…</p>
       ) : activeRules.length === 0 ? (
         <div className="empty-state">

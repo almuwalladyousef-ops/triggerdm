@@ -6,15 +6,15 @@ export async function GET(req) {
   const igId = searchParams.get('igId')
   const includePerRule = searchParams.get('perRule') === '1'
 
-  const [stats, rules, perRule, daily, tokenStatus] = await Promise.all([
+  const [stats, rules, perRule, tokenStatus] = await Promise.all([
     getStats(),
     getRules(),
     getPerRuleStats(),
-    get7DayStats(),
     getTokenStatus(),
   ])
 
   const filtered = igId ? rules.filter(r => r.igId === igId) : rules
+  const daily = await get7DayStats(igId ? filtered.map(r => r.id) : null)
 
   const response = {
     totalDMs: igId

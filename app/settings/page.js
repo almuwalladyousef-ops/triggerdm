@@ -1,12 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import WorkspaceSwitcher, { getStoredWorkspaceId, resolveActiveWorkspace, storeWorkspaceId } from '@/components/WorkspaceSwitcher'
+import { notifyWorkspacesChanged, storeWorkspaceId } from '@/components/WorkspaceSwitcher'
 
 export default function SettingsPage() {
   const [accounts, setAccounts] = useState(null)
   const [workspaces, setWorkspaces] = useState([])
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState(null)
   const [newWorkspaceName, setNewWorkspaceName] = useState('')
   const [newWorkspaceIgId, setNewWorkspaceIgId] = useState('')
   const [error, setError] = useState(null)
@@ -17,12 +16,9 @@ export default function SettingsPage() {
       fetch('/api/workspaces').then(r => r.json()),
     ])
       .then(([accs, wss]) => {
-        const active = resolveActiveWorkspace(wss, getStoredWorkspaceId())
         setAccounts(accs)
         setWorkspaces(wss)
         setNewWorkspaceIgId(accs[0]?.igId || '')
-        setActiveWorkspaceId(active?.id || null)
-        if (active) storeWorkspaceId(active.id)
       })
       .catch(() => setError('Could not load account status.'))
   }, [])
@@ -38,7 +34,7 @@ export default function SettingsPage() {
     setWorkspaces(prev => [...prev, workspace])
     setNewWorkspaceName('')
     storeWorkspaceId(workspace.id)
-    setActiveWorkspaceId(workspace.id)
+    notifyWorkspacesChanged()
   }
 
   async function updateWorkspace(id, fields) {
@@ -51,6 +47,7 @@ export default function SettingsPage() {
     if (res.ok) {
       const workspace = await res.json()
       setWorkspaces(prev => prev.map(w => w.id === id ? workspace : w))
+      notifyWorkspacesChanged()
     }
   }
 
@@ -64,9 +61,7 @@ export default function SettingsPage() {
     })
     const next = workspaces.filter(w => w.id !== id)
     setWorkspaces(next)
-    const active = resolveActiveWorkspace(next, activeWorkspaceId)
-    setActiveWorkspaceId(active?.id || null)
-    if (active) storeWorkspaceId(active.id)
+    notifyWorkspacesChanged()
   }
 
   return (
@@ -78,14 +73,8 @@ export default function SettingsPage() {
       <section>
         <h2 id="workspaces">Workspaces</h2>
         <p className="hint">
-          Switch workspaces to change which connected Instagram account new rules use. Rename them however you want.
+          Add workspaces and edit their names. Use the workspace switcher in the sidebar to change the whole app view.
         </p>
-
-        <WorkspaceSwitcher
-          workspaces={workspaces}
-          activeWorkspaceId={activeWorkspaceId}
-          onChange={setActiveWorkspaceId}
-        />
 
         <div className="workspace-manager">
           {workspaces.map(workspace => (
