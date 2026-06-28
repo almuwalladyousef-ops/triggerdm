@@ -553,6 +553,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .empty-state__title { font-size: 17px; font-weight: 600; color: var(--text); }
 .empty-state__sub { font-size: 14px; color: var(--text-muted); max-width: 360px; }
 .empty-state a { color: var(--accent); text-decoration: none; }
+.empty-state a.btn-primary { color: var(--on-accent); }
 
 /* Rule Editor */
 .rule-editor { display: flex; flex-direction: column; gap: 28px; }

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import MessageBuilder from './MessageBuilder'
 import ReelPicker from './ReelPicker'
 import { getStoredWorkspaceId, resolveActiveWorkspace, storeWorkspaceId } from './WorkspaceSwitcher'
+import { confirmDialog, alertDialog } from '@/lib/dialog'
 
 const DEFAULT_TWO_STEP_PROMPT = 'Want me to send the link?'
 const DEFAULT_TWO_STEP_BUTTON_TEXT = 'Send It In 5 min!'
@@ -235,7 +236,7 @@ export default function RuleEditor({ initial }) {
   }
 
   async function deleteRule() {
-    if (!confirm(`Delete "${rule.name}"? This cannot be undone.`)) return
+    if (!(await confirmDialog(`Delete "${rule.name}"? This cannot be undone.`, { confirmLabel: 'Delete', danger: true }))) return
     await fetch(`/api/rules/${rule.id}`, { method: 'DELETE' })
     router.push('/rules')
   }
@@ -252,11 +253,11 @@ export default function RuleEditor({ initial }) {
   }
 
   async function resetLog() {
-    if (!confirm('Clear the DM history for this rule? Everyone who was DMed can be DMed again.')) return
+    if (!(await confirmDialog('Clear the DM history for this rule? Everyone who was DMed can be DMed again.', { confirmLabel: 'Clear' }))) return
     setResetting(true)
     await fetch(`/api/rules/${rule.id}?action=reset-log`, { method: 'POST' })
     setResetting(false)
-    alert('DM history cleared.')
+    await alertDialog('DM history cleared.')
   }
 
   async function testSend() {

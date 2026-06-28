@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { confirmDialog } from '@/lib/dialog'
 
 export const ACTIVE_WORKSPACE_KEY = 'triggerdm.activeWorkspaceId'
 export const WORKSPACES_CHANGED_EVENT = 'workspaceschange'
@@ -67,7 +68,7 @@ export default function WorkspaceSwitcher({ workspaces, activeWorkspaceId, onCha
   }
 
   async function deleteWorkspace(workspace) {
-    if (!confirm(`Delete workspace "${workspace.name}"? Rules are not deleted.`)) return
+    if (!(await confirmDialog(`Delete workspace "${workspace.name}"? Rules are not deleted.`, { confirmLabel: 'Delete', danger: true }))) return
 
     await fetch('/api/workspaces', {
       method: 'DELETE',

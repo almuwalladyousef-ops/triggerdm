@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import RuleCard, { RuleCardSkeleton } from '@/components/RuleCard'
 import useActiveWorkspace from '@/components/useActiveWorkspace'
+import { confirmDialog } from '@/lib/dialog'
 
 const SORT_OPTIONS = [
   { value: 'updated', label: 'Last updated' },
@@ -79,7 +80,7 @@ export default function RulesPage() {
 
   async function handleBulkDelete() {
     const names = [...selected].map(id => rules.find(r => r.id === id)?.name).filter(Boolean)
-    if (!confirm(`Delete ${selected.size} rule${selected.size !== 1 ? 's' : ''}?\n\n${names.join('\n')}`)) return
+    if (!(await confirmDialog(`Delete ${selected.size} rule${selected.size !== 1 ? 's' : ''}?\n\n${names.join('\n')}`, { confirmLabel: 'Delete', danger: true }))) return
     setBulkAction('delete')
     await fetch('/api/rules', {
       method: 'DELETE',
